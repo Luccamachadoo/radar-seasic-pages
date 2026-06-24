@@ -80,10 +80,10 @@ section{margin-top:40px}
 .search svg{flex:none;color:var(--tinta-2)}
 
 /* ---------- map layout ---------- */
-.maprow{display:grid;grid-template-columns:1.32fr 1fr;gap:18px;align-items:stretch}
+.maprow{display:grid;grid-template-columns:1.32fr 1fr;gap:18px;align-items:start}
 .card{background:var(--branco);border:1px solid var(--linha);border-radius:var(--radius);box-shadow:var(--shadow)}
-.mapcard{padding:10px 10px 6px;position:relative;min-height:420px;display:flex;flex-direction:column}
-#map{width:100%;height:auto;flex:1;display:block}
+.mapcard{padding:10px 10px 6px;position:relative;display:flex;flex-direction:column}
+#map{width:100%;height:auto;max-height:70vh;flex:1;display:block}
 #map path.mun{stroke:#fff;stroke-width:.7;cursor:pointer;transition:fill .35s,stroke .12s,filter .12s;outline:none}
 #map path.mun:hover{stroke:#0c2c5e;stroke-width:1.4}
 #map path.mun:focus-visible{stroke:#0c2c5e;stroke-width:1.8}
@@ -103,7 +103,12 @@ section{margin-top:40px}
 .legend .k b{width:13px;height:13px;border-radius:3px;display:inline-block}
 
 /* ---------- detail panel ---------- */
-.panel{padding:18px 20px;display:flex;flex-direction:column;min-height:420px}
+.panel{padding:18px 20px;display:flex;flex-direction:column;min-height:300px;max-height:70vh}
+.pbody{flex:1 1 auto;min-height:0;overflow:auto;margin-top:14px}
+.ychips{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.ychips span{font-size:12px;background:#f1f5fb;border:1px solid var(--linha);border-radius:999px;
+  padding:3px 11px;color:var(--tinta-2);font-variant-numeric:tabular-nums}
+.ychips b{color:var(--azul);font-weight:700}
 .panel .ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   border-bottom:1px solid var(--linha);padding-bottom:14px}
 .panel .ph h3{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
@@ -112,7 +117,7 @@ section{margin-top:40px}
 .badge.v{background:rgba(27,79,156,.1);color:var(--azul)}
 .badge.s{background:rgba(247,181,0,.16);color:#9a7400}
 .badge.nv{background:rgba(199,205,214,.45);color:#5a6477}
-.vlist{list-style:none;margin:14px 0 0;padding:0;overflow:auto;flex:1}
+.vlist{list-style:none;margin:0;padding:0}
 .vlist li{display:flex;gap:12px;padding:9px 2px;border-bottom:1px solid #eef1f7;align-items:baseline}
 .vlist li .dt{font-size:12.5px;font-weight:700;color:var(--azul);min-width:84px;flex:none}
 .vlist li .pg{font-size:13.5px}
@@ -178,8 +183,9 @@ footer.gov b{color:#fff}
 @media(max-width:920px){
   .kpis{grid-template-columns:repeat(2,1fr)}
   .maprow{grid-template-columns:1fr}
-  .panel{min-height:0}
+  .panel{min-height:0;max-height:64vh}
   .mapcard{min-height:0}
+  #map{max-height:52vh}
   .search{margin-left:0;width:100%}
   .method dl{grid-template-columns:1fr;gap:2px 0}
   .method dt{margin-top:10px}
@@ -383,8 +389,8 @@ function buildMap(){
     p.setAttribute("tabindex","0"); p.setAttribute("role","button");
     p.addEventListener("mousemove",e=>showTip(e,name));
     p.addEventListener("mouseleave",hideTip);
-    p.addEventListener("click",()=>select(name));
-    p.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();select(name);} });
+    p.addEventListener("click",()=>select(name,'map'));
+    p.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();select(name,'map');} });
     gMun.appendChild(p); paths[name]=p;
   });
   svg.appendChild(gMun); svg.appendChild(gAco);
@@ -428,22 +434,42 @@ function hideTip(){ tip.style.opacity=0; }
 
 /* ---------------- PANEL ---------------- */
 const panel=document.getElementById('panel');
-function select(name){
+function select(name, source){
   SELECTED=name;
   Object.entries(paths).forEach(([n,p])=>p.classList.toggle("sel",n===name));
   document.querySelectorAll("#rankbody tr").forEach(tr=>tr.classList.toggle("sel",tr.dataset.name===name));
   renderPanel(name);
-  const tr=document.querySelector(`#rankbody tr[data-name="${cssesc(name)}"]`);
-  if(tr) tr.scrollIntoView({block:"nearest"});
+  const desktop=window.matchMedia('(min-width:921px)').matches;
+  const beh=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  const maprow=document.querySelector('.maprow');
+  if(source==='rank'){            // clicou no ranking (lá embaixo) -> traz o mapa de volta
+    maprow.scrollIntoView({behavior:beh,block:'start'});
+  } else if(!desktop && (source==='map'||source==='search')){  // celular -> mostra o painel abaixo do mapa
+    panel.scrollIntoView({behavior:beh,block:'start'});
+  } else if(desktop && source==='search'){                     // desktop busca -> enquadra mapa+painel
+    maprow.scrollIntoView({behavior:beh,block:'nearest'});
+  }
+  // desktop + clique no mapa: não rola (painel já está ao lado)
 }
 function cssesc(s){return s.replace(/"/g,'\\"');}
 
+function aracajuFor(){ let v=DATA.aracaju; if(YEAR!=="all") v=v.filter(x=>x.d.slice(-4)===YEAR); return v; }
+function yearChips(list){
+  const c={"2023":0,"2024":0,"2025":0,"2026":0};
+  list.forEach(x=>{const y=x.d.slice(-4); if(c[y]!==undefined)c[y]++;});
+  const parts=Object.keys(c).filter(y=>c[y]>0).map(y=>`<span><b>${y}</b> ${c[y]}</span>`);
+  return parts.length>1?`<div class="ychips">${parts.join("")}</div>`:"";
+}
 function renderPanel(name){
   if(name===SEDE){
-    const list=DATA.aracaju; 
+    const all=YEAR==="all", list=aracajuFor();
+    const badge=all?"255 entregas":(list.length+(list.length===1?" entrega":" entregas")+" em "+YEAR);
+    const chips=all?yearChips(DATA.aracaju):"";
+    const body=list.length
+      ? `<div class="pbody"><ul class="vlist">${list.map(x=>`<li><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}</span></li>`).join("")}</ul></div>`
+      : `<div class="empty"><div><b>Nenhuma entrega registrada em ${YEAR}</b></div></div>`;
     panel.innerHTML=`<div class="ph"><div><h3>${SEDE}</h3><div class="meta">Sede da SEASIC · não contabilizada como visita</div></div>
-      <span class="badge s">255 entregas</span></div>
-      <ul class="vlist">${list.map(x=>`<li><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}</span></li>`).join("")}</ul>`;
+      <span class="badge s">${badge}</span></div>${chips}${body}`;
     return;
   }
   const vis=visitsFor(name), n=vis.length;
@@ -457,15 +483,14 @@ function renderPanel(name){
       <div class="piso">A contagem é piso, não teto — registros apenas no perfil institucional podem não aparecer aqui.</div></div>`;
     return;
   }
-  let html=`<div class="ph"><div><h3>${name}</h3><div class="meta">${YEAR==="all"?"Visitas da Secretária · 2023–2026":"Visitas da Secretária · "+YEAR}</div></div>
-    <span class="badge v">${n} visita${n===1?"":"s"}</span></div><ul class="vlist">`;
-  html+=vis.map(x=>`<li><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}</span></li>`).join("");
+  const chips=(YEAR==="all" && n>=12)?yearChips(vis):"";
+  let body=`<ul class="vlist">`+vis.map(x=>`<li><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}</span></li>`).join("")+`</ul>`;
   if(aco.length){
-    html+=`</ul><div class="subhead">Ações da equipe — SEASIC <span style="font-weight:600;text-transform:none;letter-spacing:0">(presença institucional, não a Secretária)</span></div><ul class="vlist">`;
-    html+=aco.map(x=>`<li class="aco"><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}<span class="tag">equipe</span></span></li>`).join("");
+    body+=`<div class="subhead">Ações da equipe — SEASIC <span style="font-weight:600;text-transform:none;letter-spacing:0">(presença institucional, não a Secretária)</span></div><ul class="vlist">`
+      +aco.map(x=>`<li class="aco"><span class="dt">${x.d}</span><span class="pg">${esc(x.p)}<span class="tag">equipe</span></span></li>`).join("")+`</ul>`;
   }
-  html+=`</ul>`;
-  panel.innerHTML=html;
+  panel.innerHTML=`<div class="ph"><div><h3>${name}</h3><div class="meta">${YEAR==="all"?"Visitas da Secretária · 2023–2026":"Visitas da Secretária · "+YEAR}</div></div>
+    <span class="badge v">${n} visita${n===1?"":"s"}</span></div>${chips}<div class="pbody">${body}</div>`;
 }
 function emptyPanel(){
   panel.innerHTML=`<div class="empty">
@@ -546,7 +571,7 @@ function buildRank(){
       ${cell("2023")}${cell("2024")}${cell("2025")}${cell("2026")}
       <td class="tot">${r.tot}</td></tr>`;
   }).join("");
-  tbody.querySelectorAll("tr").forEach(tr=>tr.addEventListener("click",()=>select(tr.dataset.name)));
+  tbody.querySelectorAll("tr").forEach(tr=>tr.addEventListener("click",()=>select(tr.dataset.name,'rank')));
   if(SELECTED){const tr=tbody.querySelector(`tr[data-name="${cssesc(SELECTED)}"]`); if(tr)tr.classList.add("sel");}
   // header arrows
   document.querySelectorAll("#rank thead th").forEach(th=>{
@@ -585,7 +610,7 @@ function buildSearch(){
 search.addEventListener('change',()=>{
   const v=search.value.trim();
   const hit=DATA.geo.features.find(f=>f.properties.name.toLowerCase()===v.toLowerCase());
-  if(hit){ select(hit.properties.name); search.blur(); }
+  if(hit){ select(hit.properties.name,'search'); search.blur(); }
 });
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
