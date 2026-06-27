@@ -87,10 +87,24 @@ section{margin-top:40px}
 .toggle input:checked + .sw{background:var(--verde)}
 .toggle input:checked + .sw::after{transform:translateX(16px)}
 .toggle input:focus-visible + .sw{outline:2px solid var(--azul);outline-offset:2px}
-.search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--branco);
+.search{margin-left:auto;position:relative;display:flex;align-items:center;gap:8px;background:var(--branco);
   border:1px solid var(--linha);border-radius:999px;padding:6px 14px;box-shadow:var(--shadow)}
-.search input{border:0;outline:0;font:inherit;font-size:13.5px;background:transparent;min-width:170px;color:var(--tinta)}
+.search input{border:0;outline:0;font:inherit;font-size:13.5px;background:transparent;flex:1 1 auto;min-width:120px;color:var(--tinta)}
+@supports (field-sizing:content){
+  .search input{field-sizing:content;flex:0 1 auto;min-width:40px;max-width:100%}
+}
 .search svg{flex:none;color:var(--tinta-2)}
+.search-clear{flex:none;border:0;background:#eef1f7;color:var(--tinta-2);width:18px;height:18px;border-radius:50%;
+  cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+.search-clear:hover{background:#dfe5ef;color:var(--tinta)}
+.ac-list{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--branco);border:1px solid var(--linha);
+  border-radius:12px;box-shadow:0 12px 34px rgba(16,42,94,.16);max-height:288px;overflow:auto;z-index:40;padding:5px}
+.ac-opt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
+  font-size:13.5px;cursor:pointer;color:var(--tinta)}
+.ac-opt:hover,.ac-opt.active{background:#eef4fc;color:var(--azul)}
+.ac-opt .vc{font-size:11.5px;color:var(--tinta-2);font-variant-numeric:tabular-nums;flex:none}
+.ac-opt.active .vc{color:var(--azul)}
+.ac-empty{padding:11px 12px;font-size:13px;color:var(--tinta-2)}
 
 /* ---------- map layout ---------- */
 .maprow{display:grid;grid-template-columns:1.32fr 1fr;gap:18px;align-items:start}
@@ -165,6 +179,35 @@ section{margin-top:40px}
 .tllegend .k b{width:12px;height:12px;border-radius:3px;display:inline-block}
 
 /* ---------- ranking ---------- */
+.rank-controls{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--branco);border:1px solid var(--linha);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
+.seg button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--tinta-2);
+  padding:6px 16px;border-radius:999px;cursor:pointer;transition:.15s}
+.seg button:hover{color:var(--azul)}
+.seg button[aria-pressed="true"]{background:var(--azul);color:#fff}
+.rank-note{font-size:12.5px;color:var(--tinta-2)}
+.barscard{padding:16px 18px}
+.rankbars{display:flex;flex-direction:column;gap:7px}
+.rbar{display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;cursor:pointer;
+  padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:background .12s}
+.rbar:hover{background:#f3f7fd}
+.rbar.sel{background:#e7f0fb;box-shadow:inset 3px 0 0 var(--azul)}
+.rbar:focus-visible{outline:2px solid var(--azul);outline-offset:1px}
+.rbar-rank{flex:none;width:22px;text-align:right;font-size:12px;font-weight:700;color:var(--tinta-2);font-variant-numeric:tabular-nums}
+.rbar-name{flex:none;width:170px;font-size:13px;font-weight:600;color:var(--tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbar-track{flex:1 1 auto;min-width:40px;height:18px;background:#f0f3f9;border-radius:5px;overflow:hidden}
+.rbar-fill{display:flex;height:100%;border-radius:5px;overflow:hidden;min-width:2px}
+.rbar-fill i{display:block;height:100%}
+.rbar-val{flex:none;width:30px;text-align:right;font-size:13px;font-weight:800;color:var(--azul);font-variant-numeric:tabular-nums}
+.bars-foot{display:flex;align-items:center;gap:16px;margin-top:14px;flex-wrap:wrap}
+.showall{border:1px solid var(--linha);background:var(--branco);color:var(--azul);font:inherit;font-size:12.5px;
+  font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer}
+.showall:hover{background:#eef4fc;border-color:var(--b3)}
+.bars-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--tinta-2)}
+.bars-legend .k{display:inline-flex;align-items:center;gap:5px}
+.bars-legend .k b{width:11px;height:11px;border-radius:3px;display:inline-block}
+table.rank td.colact,table.rank thead th.colact{background:#eef4fc}
+table.rank thead th.colact{background:var(--azul-dark)}
 .tablewrap{overflow-x:auto;border-radius:var(--radius)}
 table.rank{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--branco)}
 table.rank th,table.rank td{padding:10px 14px;text-align:right;border-bottom:1px solid #eef1f7;white-space:nowrap}
@@ -222,6 +265,9 @@ footer.gov b{color:#fff}
   .tlcard,.mapcard{padding:12px 12px 8px}
   .shead{gap:11px}
   .vlist li .dt{min-width:74px}
+  .rbar-name{width:92px;font-size:12px}
+  .rbar-rank{width:16px}
+  .barscard{padding:13px 12px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .fade{opacity:0;transform:translateY(8px);animation:fin .5s ease forwards}
@@ -279,10 +325,12 @@ footer.gov b{color:#fff}
       </div>
       <label class="toggle"><input type="checkbox" id="tg-aco"><span class="sw"></span>
         Mostrar ações da equipe <span style="color:var(--verde);font-weight:700">(SEASIC)</span></label>
-      <div class="search">
+      <div class="search" id="searchbox">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="search" list="munlist" placeholder="Buscar município…" autocomplete="off">
-        <datalist id="munlist"></datalist>
+        <input id="search" type="text" placeholder="Buscar município…" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="false" aria-controls="ac-list" aria-autocomplete="list" aria-label="Buscar município">
+        <button id="search-clear" class="search-clear" type="button" aria-label="Limpar busca" hidden>×</button>
+        <div id="ac-list" class="ac-list" role="listbox" aria-label="Municípios" hidden></div>
       </div>
     </div>
 
@@ -310,9 +358,23 @@ footer.gov b{color:#fff}
   <!-- RANKING -->
   <section>
     <div class="shead"><span class="ix">03</span>
-      <div><h2>Ranking por ano</h2><p>Clique num cabeçalho para ordenar; clique numa linha para ver o município no mapa.</p></div>
+      <div><h2>Ranking de municípios</h2><p>Por número de visitas. Clique para ver o município no mapa; segue o filtro de ano acima.</p></div>
     </div>
-    <div class="card tablewrap">
+    <div class="rank-controls">
+      <div class="seg" id="rankview" role="group" aria-label="Visualização do ranking">
+        <button data-v="bars" aria-pressed="true">Barras</button>
+        <button data-v="table" aria-pressed="false">Tabela</button>
+      </div>
+      <span class="rank-note" id="rank-note"></span>
+    </div>
+
+    <div class="card barscard" id="rank-bars-card">
+      <div id="rankbars" class="rankbars"></div>
+      <div class="bars-foot"><button class="showall" id="rank-showall" type="button"></button>
+        <span class="bars-legend" id="bars-legend"></span></div>
+    </div>
+
+    <div class="card tablewrap" id="rank-table-card" hidden>
       <table class="rank" id="rank">
         <thead><tr>
           <th data-c="mun" data-t="s">Município <span class="ar"></span></th>
@@ -472,6 +534,7 @@ function select(name, source){
   SELECTED=name;
   Object.entries(paths).forEach(([n,p])=>p.classList.toggle("sel",n===name));
   document.querySelectorAll("#rankbody tr").forEach(tr=>tr.classList.toggle("sel",tr.dataset.name===name));
+  document.querySelectorAll("#rankbars .rbar").forEach(b=>b.classList.toggle("sel",b.dataset.name===name));
   renderPanel(name);
   const live=document.getElementById('live');
   if(live){
@@ -595,35 +658,63 @@ function buildTimeline(){
 function fmtMes(s){const[a,b]=s.split("-");const nm=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];return nm[+b-1]+"/"+a;}
 
 /* ---------------- RANKING ---------------- */
-let sortCol="tot", sortDir=-1;
+let sortCol="tot", sortDir=-1, rankExpanded=false, rankView="bars";
+const RANK_TOP=15;
+const YCOLORS={"2023":"--b2","2024":"--b3","2025":"--azul","2026":"--azul-dark"};
+function cssvar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 function rankRows(){
-  const munis=Object.keys(DATA.coverage);
-  return munis.map(m=>{
+  return Object.keys(DATA.coverage).map(m=>{
     const ym=DATA.yearMatrix[m]||{};
     return {mun:m,"2023":ym["2023"]||0,"2024":ym["2024"]||0,"2025":ym["2025"]||0,"2026":ym["2026"]||0,tot:DATA.coverage[m]||0};
   });
 }
+const YRS=["2023","2024","2025","2026"];
+
+function buildBars(){
+  const wrap=document.getElementById('rankbars');
+  let rows=rankRows().map(r=>({...r, val: YEAR==="all"? r.tot : r[YEAR]}))
+                     .filter(r=>r.val>0)
+                     .sort((a,b)=> b.val-a.val || b.tot-a.tot || a.mun.localeCompare(b.mun));
+  const total=rows.length, max=rows.length?rows[0].val:1;
+  const shown=rankExpanded?rows:rows.slice(0,RANK_TOP);
+  wrap.innerHTML=shown.map((r,i)=>{
+    const fill = YEAR==="all"
+      ? YRS.map(y=> r[y]>0?`<i style="width:${(r[y]/r.tot*100).toFixed(2)}%;background:${cssvar(YCOLORS[y])}"></i>`:"").join("")
+      : `<i style="width:100%;background:${cssvar(YCOLORS[YEAR])}"></i>`;
+    return `<button class="rbar${SELECTED===r.mun?' sel':''}" data-name="${esc(r.mun)}" title="${esc(r.mun)} — ${r.val} visita${r.val===1?'':'s'}${YEAR!=='all'?' em '+YEAR:''}">
+      <span class="rbar-rank">${i+1}</span>
+      <span class="rbar-name">${esc(r.mun)}</span>
+      <span class="rbar-track"><span class="rbar-fill" style="width:${Math.max(r.val/max*100,2).toFixed(2)}%">${fill}</span></span>
+      <span class="rbar-val">${r.val}</span></button>`;
+  }).join("");
+  wrap.querySelectorAll('.rbar').forEach(b=>b.addEventListener('click',()=>select(b.dataset.name,'rank')));
+  const suffix = YEAR==="all"?"":` em ${YEAR}`;
+  document.getElementById('rank-note').textContent = (rankExpanded||total<=RANK_TOP)
+    ? `${total} municípios${suffix}` : `Top ${RANK_TOP} de ${total} municípios${suffix}`;
+  const sa=document.getElementById('rank-showall');
+  if(total<=RANK_TOP){ sa.hidden=true; } else { sa.hidden=false; sa.textContent=rankExpanded?"Ver menos":`Ver todos os ${total}`; }
+  document.getElementById('bars-legend').innerHTML = YEAR==="all"
+    ? YRS.map(y=>`<span class="k"><b style="background:${cssvar(YCOLORS[y])}"></b>${y}</span>`).join("")
+    : `<span class="k"><b style="background:${cssvar(YCOLORS[YEAR])}"></b>Visitas em ${YEAR}</span>`;
+}
+
 function buildRank(){
   const tbody=document.getElementById('rankbody');
-  let rows=rankRows();
-  rows.sort((a,b)=>{
+  let rows=rankRows().sort((a,b)=>{
     let r = sortCol==="mun" ? a.mun.localeCompare(b.mun) : (a[sortCol]-b[sortCol]);
-    if(r===0) r=b.tot-a.tot;
-    return r*sortDir;
+    if(r===0) r=b.tot-a.tot; return r*sortDir;
   });
   tbody.innerHTML=rows.map((r,i)=>{
     const nv=r.tot===0;
-    const cell=k=>`<td class="${r[k]===0?'z':''}">${r[k]}</td>`;
-    return `<tr data-name="${esc(r.mun)}" class="${nv?'nvrow':''}">
+    const cell=k=>`<td class="${r[k]===0?'z':''}${k===YEAR?' colact':''}">${r[k]}</td>`;
+    return `<tr data-name="${esc(r.mun)}" class="${nv?'nvrow':''}${SELECTED===r.mun?' sel':''}">
       <td><span class="rkpos">${sortCol==='tot'&&sortDir===-1?(nv?'–':i+1):''}</span>${esc(r.mun)}</td>
-      ${cell("2023")}${cell("2024")}${cell("2025")}${cell("2026")}
-      <td class="tot">${r.tot}</td></tr>`;
+      ${YRS.map(cell).join("")}<td class="tot">${r.tot}</td></tr>`;
   }).join("");
   tbody.querySelectorAll("tr").forEach(tr=>tr.addEventListener("click",()=>select(tr.dataset.name,'rank')));
-  if(SELECTED){const tr=tbody.querySelector(`tr[data-name="${cssesc(SELECTED)}"]`); if(tr)tr.classList.add("sel");}
-  // header arrows
   document.querySelectorAll("#rank thead th").forEach(th=>{
     th.removeAttribute("aria-sort"); const ar=th.querySelector(".ar"); ar.textContent="";
+    th.classList.toggle('colact', th.dataset.c===YEAR);
     if(th.dataset.c===sortCol){ th.setAttribute("aria-sort",sortDir===-1?"descending":"ascending"); ar.textContent=sortDir===-1?"▾":"▴"; }
   });
 }
@@ -634,13 +725,23 @@ document.querySelectorAll("#rank thead th").forEach(th=>{
     buildRank();
   });
 });
+document.getElementById('rankview').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  rankView=b.dataset.v;
+  document.querySelectorAll('#rankview button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));
+  document.getElementById('rank-bars-card').hidden = rankView!=="bars";
+  document.getElementById('rank-table-card').hidden = rankView!=="table";
+  document.getElementById('rank-note').style.visibility = rankView==="bars"?"visible":"hidden";
+});
+document.getElementById('rank-showall').addEventListener('click',()=>{ rankExpanded=!rankExpanded; buildBars(); });
 
 /* ---------------- CONTROLS ---------------- */
 document.getElementById('years').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b)return;
   YEAR=b.dataset.y;
   document.querySelectorAll('#years button').forEach(x=>x.setAttribute('aria-pressed', x===b?'true':'false'));
-  paintMap(); buildTimeline();
+  rankExpanded=false;
+  paintMap(); buildTimeline(); buildBars(); buildRank();
   if(SELECTED) renderPanel(SELECTED);
 });
 document.getElementById('tg-aco').addEventListener('change',e=>{
@@ -650,21 +751,50 @@ document.getElementById('tg-aco').addEventListener('change',e=>{
   if(SELECTED) renderPanel(SELECTED);
 });
 const search=document.getElementById('search');
-const dl=document.getElementById('munlist');
-function buildSearch(){
-  const names=DATA.geo.features.map(f=>f.properties.name).sort((a,b)=>a.localeCompare(b));
-  dl.innerHTML=names.map(n=>`<option value="${esc(n)}">`).join("");
+const acList=document.getElementById('ac-list');
+const clearBtn=document.getElementById('search-clear');
+const ALLNAMES=DATA.geo.features.map(f=>f.properties.name).sort((a,b)=>a.localeCompare(b));
+let acIndex=-1;
+function acMeta(name){
+  if(name===SEDE) return "sede";
+  const n=DATA.coverage[name]||0;
+  return n>0? n+" visita"+(n===1?"":"s") : "não visitado";
 }
-search.addEventListener('change',()=>{
-  const v=search.value.trim();
-  const hit=DATA.geo.features.find(f=>f.properties.name.toLowerCase()===v.toLowerCase());
-  if(hit){ select(hit.properties.name,'search'); search.blur(); }
+function acOpen(){
+  const f=search.value.toLowerCase().trim();
+  const items = f? ALLNAMES.filter(n=>n.toLowerCase().includes(f)) : ALLNAMES.slice();
+  acIndex=-1;
+  acList.innerHTML = items.length
+    ? items.map((n,i)=>`<div class="ac-opt" role="option" id="ac-${i}" data-name="${esc(n)}"><span>${esc(n)}</span><span class="vc">${acMeta(n)}</span></div>`).join("")
+    : `<div class="ac-empty">Nenhum município encontrado</div>`;
+  acList.hidden=false; search.setAttribute('aria-expanded','true');
+}
+function acClose(){ acList.hidden=true; search.setAttribute('aria-expanded','false'); search.removeAttribute('aria-activedescendant'); acIndex=-1; }
+function acChoose(name){ search.value=name; clearBtn.hidden=false; acClose(); select(name,'search'); }
+function acActive(){
+  const opts=[...acList.querySelectorAll('.ac-opt')];
+  opts.forEach((o,i)=>o.classList.toggle('active',i===acIndex));
+  if(opts[acIndex]){ search.setAttribute('aria-activedescendant',opts[acIndex].id); opts[acIndex].scrollIntoView({block:'nearest'}); }
+}
+search.addEventListener('focus',()=>{ search.select(); acOpen(); });
+search.addEventListener('input',()=>{ clearBtn.hidden=!search.value; acOpen(); });
+search.addEventListener('keydown',e=>{
+  if(acList.hidden){ if(e.key==='ArrowDown'){ e.preventDefault(); acOpen(); } return; }
+  const opts=[...acList.querySelectorAll('.ac-opt')];
+  if(e.key==='ArrowDown'){ e.preventDefault(); acIndex=Math.min(acIndex+1,opts.length-1); acActive(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); acIndex=Math.max(acIndex-1,0); acActive(); }
+  else if(e.key==='Enter'){ e.preventDefault(); if(acIndex>=0&&opts[acIndex]) acChoose(opts[acIndex].dataset.name); else if(opts.length>=1) acChoose(opts[0].dataset.name); }
+  else if(e.key==='Escape'){ acClose(); search.blur(); }
 });
+acList.addEventListener('mousedown',e=>{ const o=e.target.closest('.ac-opt'); if(o){ e.preventDefault(); acChoose(o.dataset.name); } });
+clearBtn.addEventListener('click',()=>{ search.value=''; clearBtn.hidden=true; acOpen(); search.focus(); });
+document.getElementById('searchbox').addEventListener('click',e=>{ if(e.target.id==='searchbox') search.focus(); });
+document.addEventListener('click',e=>{ if(!document.getElementById('searchbox').contains(e.target)) acClose(); });
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 /* ---------------- INIT ---------------- */
-buildMap(); buildLegend(); buildTimeline(); buildRank(); buildSearch(); emptyPanel();
+buildMap(); buildLegend(); buildTimeline(); buildBars(); buildRank(); emptyPanel();
 </script>
 </body>
 </html>
