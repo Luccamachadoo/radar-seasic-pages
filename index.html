@@ -519,7 +519,7 @@ function paintMap(){
 function showTip(e,name){
   const r=svg.getBoundingClientRect(), host=svg.parentElement.getBoundingClientRect();
   let txt;
-  if(name===SEDE) txt=`<b>${esc(SEDE)}</b> · sede · <span class="tn">${DATA.meta.entregasSede} entregas</span>`;
+  if(name===SEDE){ const k=aracajuFor().length; txt=`<b>${esc(SEDE)}</b> · sede · <span class="tn">${k}</span> entrega${k===1?"":"s"}${YEAR!=="all"?" em "+YEAR:""}`; }
   else{ const n=countFor(name); txt=`<b>${esc(name)}</b> · <span class="tn">${n}</span> visita${n===1?"":"s"}${YEAR!=="all"?" em "+YEAR:""}`; }
   tip.innerHTML=txt;
   tip.style.left=(e.clientX-host.left)+"px";
