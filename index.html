@@ -787,7 +787,7 @@ search.addEventListener('keydown',e=>{
   else if(e.key==='Escape'){ acClose(); search.blur(); }
 });
 acList.addEventListener('mousedown',e=>{ const o=e.target.closest('.ac-opt'); if(o){ e.preventDefault(); acChoose(o.dataset.name); } });
-clearBtn.addEventListener('click',()=>{ search.value=''; clearBtn.hidden=true; acOpen(); search.focus(); });
+clearBtn.addEventListener('click',()=>{ search.value=''; clearBtn.hidden=true; SELECTED=null; Object.values(paths).forEach(p=>p.classList.remove("sel")); document.querySelectorAll('#rankbody tr.sel, #rankbars .rbar.sel').forEach(el=>el.classList.remove('sel')); emptyPanel(); acOpen(); search.focus(); });
 document.getElementById('searchbox').addEventListener('click',e=>{ if(e.target.id==='searchbox') search.focus(); });
 document.addEventListener('click',e=>{ if(!document.getElementById('searchbox').contains(e.target)) acClose(); });
 
