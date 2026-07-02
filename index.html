@@ -290,6 +290,27 @@ footer.gov b{color:#fff}
 .alin-tg{flex:none}
 #map path.opo{fill:none;stroke:#C0392B;stroke-width:2.2;pointer-events:none;paint-order:stroke}
 .legend .k.lg-opo b{background:transparent;border:2px solid #C0392B;width:13px;height:13px;border-radius:3px}
+
+/* ---------- bottom sheet do painel (mobile) ---------- */
+.sheet-overlay{position:fixed;inset:0;background:rgba(16,33,64,.45);opacity:0;
+  transition:opacity .28s ease-out;z-index:59;pointer-events:none}
+.sheet-overlay.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--branco);
+  border-radius:16px 16px 0 0;box-shadow:0 -10px 34px rgba(16,33,64,.28);
+  max-height:85vh;display:flex;flex-direction:column;
+  transform:translateY(101%);transition:transform .28s ease-out}
+.sheet.open{transform:translateY(0)}
+.sheet-head{flex:none;position:relative;display:flex;align-items:center;justify-content:center;padding:10px 12px 6px}
+.sheet-handle{width:40px;height:4px;border-radius:999px;background:#cbd5e6}
+.sheet-x{position:absolute;right:10px;top:5px;border:0;background:#eef4fc;color:var(--azul);
+  width:32px;height:32px;border-radius:50%;font-size:14px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.sheet-x:hover{background:#dfeafa}
+.sheet>#panel{flex:1 1 auto;min-height:0;max-height:none;overflow:auto;
+  border:0;box-shadow:none;border-radius:0;padding:2px 18px 20px}
+.sheet>#panel .ph{padding-right:42px}   /* não colar o badge no botão X */
+@media(max-width:920px){ .maprow>#panel{display:none} }
+@media(min-width:921px){ .sheet,.sheet-overlay{display:none!important} }
 </style>
 </head>
 <body>
@@ -547,6 +568,60 @@ function hideTip(){ tip.style.opacity=0; }
 
 /* ---------------- PANEL ---------------- */
 const panel=document.getElementById('panel');
+
+/* ---------- bottom sheet (mobile): reaproveita o #panel ---------- */
+const mqMobile=window.matchMedia('(max-width:920px)');
+const maprowEl=document.querySelector('.maprow');
+const sheetOverlay=document.createElement('div');
+sheetOverlay.className='sheet-overlay'; sheetOverlay.id='sheet-overlay';
+const sheet=document.createElement('div');
+sheet.className='sheet'; sheet.id='sheet';
+sheet.setAttribute('role','dialog'); sheet.setAttribute('aria-modal','true');
+sheet.setAttribute('aria-label','Detalhes do município'); sheet.setAttribute('aria-hidden','true');
+const sheetHead=document.createElement('div'); sheetHead.className='sheet-head';
+sheetHead.innerHTML='<span class="sheet-handle" aria-hidden="true"></span><button type="button" class="sheet-x" aria-label="Fechar detalhes">✕</button>';
+sheet.appendChild(sheetHead);
+document.body.appendChild(sheetOverlay);
+document.body.appendChild(sheet);
+let sheetLastFocus=null;
+function openSheet(){
+  if(!mqMobile.matches) return;
+  if(panel.parentNode!==sheet) sheet.appendChild(panel);   // move o #panel pra dentro do sheet (mesmo conteúdo)
+  sheetLastFocus=document.activeElement;
+  sheet.setAttribute('aria-hidden','false');
+  void sheet.offsetWidth;                                   // força reflow p/ a transição rodar
+  sheetOverlay.classList.add('show'); sheet.classList.add('open');
+  const x=sheet.querySelector('.sheet-x'); if(x) x.focus();
+}
+function closeSheet(){
+  sheet.classList.remove('open'); sheetOverlay.classList.remove('show');
+  sheet.setAttribute('aria-hidden','true');
+  if(sheetLastFocus && typeof sheetLastFocus.focus==='function'){ try{ sheetLastFocus.focus(); }catch(_){} }
+  sheetLastFocus=null;
+}
+sheetOverlay.addEventListener('click', closeSheet);
+sheetHead.querySelector('.sheet-x').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && sheet.classList.contains('open')){ e.preventDefault(); closeSheet(); }
+});
+sheet.addEventListener('keydown', e=>{                      // trap simples de foco enquanto aberto
+  if(e.key!=='Tab' || !sheet.classList.contains('open')) return;
+  const f=sheet.querySelectorAll('button,a[href],input,[tabindex]:not([tabindex="-1"])');
+  if(!f.length) return;
+  const first=f[0], last=f[f.length-1];
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
+function syncSheet(){                                        // ao voltar p/ desktop, painel volta pra maprow
+  if(!mqMobile.matches){
+    if(panel.parentNode!==maprowEl) maprowEl.appendChild(panel);
+    sheet.classList.remove('open'); sheetOverlay.classList.remove('show');
+    sheet.setAttribute('aria-hidden','true');
+  }
+}
+if(mqMobile.addEventListener) mqMobile.addEventListener('change', syncSheet);
+else if(mqMobile.addListener) mqMobile.addListener(syncSheet);
+
 function select(name, source){
   SELECTED=name;
   Object.entries(paths).forEach(([n,p])=>p.classList.toggle("sel",n===name));
@@ -560,17 +635,19 @@ function select(name, source){
     else { const k=visitsFor(name).length; msg=`${name} — ${k} ${k===1?"visita":"visitas"}${YEAR!=="all"?" em "+YEAR:""}`; }
     live.textContent=msg;
   }
-  const desktop=window.matchMedia('(min-width:921px)').matches;
   const beh=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
-  const maprow=document.querySelector('.maprow');
-  if(source==='rank'){            // clicou no ranking (lá embaixo) -> traz o mapa de volta
-    maprow.scrollIntoView({behavior:beh,block:'start'});
-  } else if(!desktop && (source==='map'||source==='search')){  // celular -> mostra o painel abaixo do mapa
-    panel.scrollIntoView({behavior:beh,block:'start'});
-  } else if(desktop && source==='search'){                     // desktop busca -> enquadra mapa+painel
-    maprow.scrollIntoView({behavior:beh,block:'nearest'});
+  if(mqMobile.matches){
+    // celular: detalhes surgem no bottom sheet (mapa fica visível atrás), sem salto de página
+    openSheet();
+  } else {
+    // desktop: painel já fica ao lado do mapa
+    if(source==='rank'){          // clique no ranking (lá embaixo) -> reenquadra o mapa
+      maprowEl.scrollIntoView({behavior:beh,block:'start'});
+    } else if(source==='search'){ // busca -> enquadra mapa+painel
+      maprowEl.scrollIntoView({behavior:beh,block:'nearest'});
+    }
+    // clique no mapa: não rola (painel já está ao lado)
   }
-  // desktop + clique no mapa: não rola (painel já está ao lado)
 }
 function cssesc(s){return s.replace(/"/g,'\\"');}
 
