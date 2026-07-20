@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de Sergipe — Territórios SEASIC</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="seasic-data.js"></script>
+<style>
+  html,body{margin:0;height:100%;font-family:"Public Sans",system-ui,sans-serif;background:#eef1f4}
+  #map{position:absolute;inset:0}
+  .leaflet-container{background:#dde4ea;font-family:inherit}
+  .lg{position:absolute;left:12px;bottom:12px;z-index:500;background:#fff;border:1px solid #e2e6ea;border-radius:8px;padding:10px 12px;font-size:11.5px;color:#1b2733;box-shadow:0 2px 10px rgba(20,50,79,.12)}
+  .lg b{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#5b6b7b;margin-bottom:6px;font-weight:700}
+  .lg span{display:flex;align-items:center;gap:7px;margin:3px 0}
+  .lg i{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .pop b{font-size:12.5px;color:#16324f}
+  .pop .row{font-size:11px;color:#33475b;margin-top:4px;line-height:1.35}
+  .pop .tag{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:4px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="lg">
+  <b>Etapa</b>
+  <span><i style="background:#2f7d5b"></i>Concluído</span>
+  <span><i style="background:#d98a00"></i>Licitação / em obra</span>
+  <span><i style="background:#2b6cb0"></i>Em andamento</span>
+</div>
+<script>
+const COORD={
+"Propriá":[-10.21,-36.84],"Santa Luzia do Itanhy":[-11.35,-37.46],"Itaporanga D'Ajuda":[-10.99,-37.31],
+"Nossa Senhora do Socorro":[-10.85,-37.13],"Riachão do Dantas":[-11.07,-37.73],"Itabaianinha":[-11.27,-37.79],
+"Pedrinhas":[-11.19,-37.68],"Muribeca":[-10.42,-36.96],"Santana do São Francisco":[-10.29,-36.61],
+"Macambira":[-10.67,-37.54],"Cumbe":[-10.36,-37.19],"Lagarto":[-10.91,-37.65],"Ilha das Flores":[-10.44,-36.55],
+"Estância":[-11.26,-37.44],"Aquidabã":[-10.28,-37.02],"Frei Paulo":[-10.55,-37.53],"Canhoba":[-10.13,-36.98],
+"Japaratuba":[-10.59,-36.94],"Nossa Senhora da Glória":[-10.21,-37.42],"Divina Pastora":[-10.68,-37.15],
+"Pacatuba":[-10.45,-36.65],"Simão Dias":[-10.74,-37.81],"Monte Alegre":[-10.03,-37.56],"Monte Alegre de Sergipe":[-10.03,-37.56],
+"Laranjeiras":[-10.80,-37.17],"Ribeirópolis":[-10.53,-37.44],"Tomar do Geru":[-11.37,-37.83],"Tomar Do Geru":[-11.37,-37.83],
+"São Cristóvão":[-11.01,-37.21],"Siriri":[-10.60,-37.11],"Santo Amaro das Brotas":[-10.78,-37.05],
+"Brejo Grande":[-10.43,-36.46],"Malhada dos Bois":[-10.35,-36.92],"Cristinápolis":[-11.47,-37.75],
+"Campo do Brito":[-10.74,-37.49],"Areia Branca":[-10.76,-37.31],"Carira":[-10.36,-37.70],"Poço Verde":[-10.71,-38.18],
+"Arauá":[-11.26,-37.62],"General Maynard":[-10.63,-36.99],"Itabi":[-10.13,-37.13],"Japoatã":[-10.34,-36.80],
+"Moita Bonita":[-10.58,-37.34],"Nossa Senhora Das Dores":[-10.49,-37.19],"Nossa Senhora De Lourdes":[-10.08,-37.06],
+"Maruim":[-10.73,-37.09],"Telha":[-10.20,-36.88]
+};
+const map=L.map('map',{zoomControl:true,attributionControl:true}).setView([-10.75,-37.35],8);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const T=(window.SEASIC&&window.SEASIC.territorios)||[];
+const byM={};T.forEach(t=>{(byM[t.municipio]=byM[t.municipio]||[]).push(t);});
+function colorFor(items){
+  const et=items.map(i=>(i.etapa||'').toLowerCase());
+  if(et.some(e=>e.includes('licita')||e.includes('obra')))return '#d98a00';
+  if(et.every(e=>e.includes('conclu')))return '#2f7d5b';
+  return '#2b6cb0';
+}
+function tagColor(e){e=(e||'').toLowerCase();if(e.includes('conclu'))return '#2f7d5b';if(e.includes('licita')||e.includes('obra'))return '#d98a00';return '#2b6cb0';}
+Object.entries(byM).forEach(([m,items])=>{
+  const c=COORD[m];if(!c)return;
+  const col=colorFor(items);
+  const mk=L.circleMarker(c,{radius:6+Math.min(items.length,4),color:'#fff',weight:1.5,fillColor:col,fillOpacity:.9}).addTo(map);
+  const rows=items.map(i=>`<div class="row"><span class="tag" style="background:${tagColor(i.etapa)}22;color:${tagColor(i.etapa)}">${i.etapa||'—'}</span>${i.prog}${i.edoc?' · e-DOC '+i.edoc:''}<br>${i.situacao||''}</div>`).join('');
+  mk.bindPopup(`<div class="pop"><b>${m}</b>${rows}</div>`,{maxWidth:280});
+});
+</script>
+</body>
+</html>

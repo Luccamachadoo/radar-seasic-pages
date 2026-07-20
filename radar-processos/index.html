@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Módulo independente de processos e e-DOCs da SEASIC, preparado como etapa para possível integração futura ao Radar Gabinete.">
+<meta name="theme-color" content="#16324f">
+<meta name="robots" content="index,follow">
+<title>Radar SEASIC — Módulo de Processos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<script src="seasic-data.js"></script>
+<style>
+ *{box-sizing:border-box}
+ html,body{margin:0}
+ body{font-family:"Public Sans",system-ui,-apple-system,sans-serif;background:#eef1f4;color:#1b2733;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+ a{color:#1f4e79;text-decoration:none}
+ a:hover{text-decoration:underline}
+ button{font-family:inherit;cursor:pointer;border:none;background:none}
+ ::-webkit-scrollbar{width:11px;height:11px}
+ ::-webkit-scrollbar-thumb{background:#c7d0d8;border-radius:6px;border:3px solid transparent;background-clip:padding-box}
+ ::-webkit-scrollbar-thumb:hover{background:#a9b6c1;background-clip:padding-box;border:3px solid transparent}
+ @keyframes shimmer{0%{background-position:-460px 0}100%{background-position:460px 0}}
+ .sk{background:linear-gradient(90deg,#e7ebef 25%,#dde3e8 37%,#e7ebef 63%);background-size:900px 100%;animation:shimmer 1.5s infinite;border-radius:5px}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;width:100%;background:#eef1f4">
+
+  <aside style="flex:none;width:{{ sbWidth }};background:#16324f;color:#dfe7ef;position:sticky;top:0;align-self:flex-start;height:100vh;display:flex;flex-direction:column;transition:width .16s ease;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 14px;border-bottom:1px solid rgba(255,255,255,.09)">
+      <div style="flex:none;width:34px;height:34px;border-radius:8px;background:#2f7d5b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;letter-spacing:-.5px">R</div>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+        <div style="min-width:0">
+          <div style="font-size:13.5px;font-weight:800;letter-spacing:.2px;line-height:1.1;white-space:nowrap">Radar Gabinete</div>
+          <div style="font-size:10.5px;color:#8fa6bd;font-weight:600;letter-spacing:.08em;white-space:nowrap">SEASIC · SERGIPE</div>
+        </div>
+      </sc-if>
+    </div>
+    <nav style="flex:1;overflow-y:auto;padding:10px 10px 20px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#6f88a1;padding:14px 10px 6px">{{ g.title }}</div>
+        </sc-if>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+          <button onClick="{{ it.go }}" title="{{ it.label }}" style="{{ it.style }}">
+            <span style="{{ it.dot }}"></span>
+            <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+            </sc-if>
+            <sc-if value="{{ it.showBadge }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ it.badgeStyle }}">{{ it.badge }}</span>
+            </sc-if>
+          </button>
+        </sc-for>
+      </sc-for>
+    </nav>
+    <button onClick="{{ toggleSidebar }}" style="flex:none;display:flex;align-items:center;gap:9px;padding:12px 18px;border-top:1px solid rgba(255,255,255,.09);color:#9fb3c8;font-size:11.5px;font-weight:600;width:100%">
+      <span style="font-size:14px;line-height:1">{{ collapseIcon }}</span>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Recolher menu</span></sc-if>
+    </button>
+  </aside>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid #e2e6ea">
+      <div style="display:flex;align-items:center;gap:18px;padding:11px 26px">
+        <div style="position:relative;flex:1;max-width:520px">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#93a1af;font-size:13px">⌕</span>
+          <input value="{{ query }}" onInput="{{ onQuery }}" onKeyDown="{{ onSearchKey }}" placeholder="Buscar por e-DOC, objeto, programa, município, setor…" style="width:100%;padding:9px 12px 9px 32px;border:1px solid #dde3e8;border-radius:8px;background:#f6f8f9;font-size:13px;color:#1b2733;outline:none" />
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5b6b7b;font-weight:600">
+          <span style="width:7px;height:7px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>
+          Data-base {{ dataBase }}
+        </div>
+        <div style="height:22px;width:1px;background:#e2e6ea"></div>
+        <button onClick="{{ openFilters }}" style="display:flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid #dde3e8;border-radius:8px;font-size:12px;font-weight:600;color:#33475b;background:#fff">Filtros</button>
+        <button style="display:flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid #dde3e8;border-radius:8px;font-size:12px;font-weight:600;color:#33475b;background:#fff">Exportar</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;padding:0 26px 11px;font-size:12px;color:#7a8896">
+        <sc-for list="{{ breadcrumb }}" as="b" hint-placeholder-count="2">
+          <span style="{{ b.style }}">{{ b.label }}</span>
+          <sc-if value="{{ b.sep }}" hint-placeholder-val="{{ false }}"><span style="color:#c2ccd4">/</span></sc-if>
+        </sc-for>
+        <div style="flex:1"></div>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#93a1af">Última atualização das fontes: {{ dataBase }}</span>
+      </div>
+    </header>
+
+    <main ref="{{ contentRef }}" style="flex:1;padding:26px 30px 60px;max-width:1420px;width:100%">
+      <sc-if value="{{ notReady }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:16px;max-width:900px">
+          <div class="sk" style="height:120px"></div>
+          <div class="sk" style="height:320px"></div>
+        </div>
+      </sc-if>
+
+<!-- ============ HOME / MAPA ============ -->
+<sc-if value="{{ is.home }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-bottom:26px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8a97a5">Sala de Situação Digital · SEASIC</div>
+    <h1 style="margin:6px 0 0;font-size:27px;font-weight:800;letter-spacing:-.4px;color:#16324f">Radar Gabinete</h1>
+    <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#5d6b77;max-width:78ch">Monitoramento executivo e operacional de processos, e-DOCs, projetos estratégicos, licitações, APLs, dependências na PGE e entregas territoriais — consolidado a partir de {{ fonteTotalReg }} registros de fonte, com rastreabilidade obrigatória. Escolha um módulo para começar.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:30px">
+    <sc-for list="{{ navMap }}" as="m" hint-placeholder-count="11">
+      <button onClick="{{ m.go }}" style="text-align:left;background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 2px rgba(20,50,79,.04)" style-hover="border-color:#2f7d5b;box-shadow:0 6px 20px rgba(20,50,79,.1);transform:translateY(-2px)">
+        <div style="display:flex;align-items:center;gap:11px">
+          <span style="flex:none;width:30px;height:30px;border-radius:8px;background:#eef4f1;color:#2f7d5b;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">{{ m.n }}</span>
+          <span style="font-size:15px;font-weight:700;color:#16324f">{{ m.t }}</span>
+        </div>
+        <span style="font-size:12.5px;line-height:1.5;color:#66747f">{{ m.d }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a97a5;margin-bottom:12px">Arquitetura da informação</div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:12.5px;color:#3a4855;line-height:1.5">
+        <div style="display:flex;gap:10px"><span style="flex:none;width:120px;font-weight:700;color:#16324f">Processo (e-DOC)</span><span>1 linha por e-DOC único em <b>Processos Consolidado</b> — a posição resumida de cada processo.</span></div>
+        <div style="display:flex;gap:10px"><span style="flex:none;width:120px;font-weight:700;color:#16324f">Registros Fonte</span><span>Histórico e rastreabilidade — cada aparição do e-DOC nas fontes, preservada.</span></div>
+        <div style="display:flex;gap:10px"><span style="flex:none;width:120px;font-weight:700;color:#16324f">Vínculos ⇄</span><span>Relação muitos-para-muitos entre projetos/programas e e-DOCs.</span></div>
+        <div style="display:flex;gap:10px"><span style="flex:none;width:120px;font-weight:700;color:#16324f">Divergências</span><span>Pontos que precisam de validação antes de virar posição oficial.</span></div>
+      </div>
+    </div>
+    <div style="background:#0f2842;border:1px solid #0f2842;border-radius:12px;padding:20px;color:#dbe6f0">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7fa0bf;margin-bottom:12px">Duas leituras simultâneas</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div><div style="font-weight:800;color:#7fd6ab;font-size:13px">Executiva</div><div style="font-size:12.5px;line-height:1.5;color:#c3d3e2;margin-top:2px">O que está em risco, o que depende de decisão e o que precisa ser cobrado.</div></div>
+        <div><div style="font-weight:800;color:#8fbce8;font-size:13px">Operacional</div><div style="font-size:12.5px;line-height:1.5;color:#c3d3e2;margin-top:2px">Onde está o processo, com quem está, último trâmite e próximo passo.</div></div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ============ VISÃO EXECUTIVA ============ -->
+<sc-if value="{{ is.exec }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:18px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Panorama</div>
+    <h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Visão Executiva</h1>
+    <p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Indicadores calculados sobre a base consolidada. Clique em qualquer número para abrir os processos que o compõem.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px">
+    <sc-for list="{{ kpiCards }}" as="c" hint-placeholder-count="6">
+      <button onClick="{{ c.go }}" style="text-align:left;background:#fff;border:1px solid #e6eaee;border-top:3px solid {{ c.tone }};border-radius:11px;padding:14px 15px 13px;display:flex;flex-direction:column;gap:3px" style-hover="box-shadow:0 5px 16px rgba(20,50,79,.09)">
+        <span style="font-size:28px;font-weight:800;letter-spacing:-1px;color:{{ c.tone }};line-height:1">{{ c.valueStr }}</span>
+        <span style="font-size:12px;font-weight:700;color:#2a3846;line-height:1.2;margin-top:4px">{{ c.label }}</span>
+        <span style="font-size:10.5px;color:#8a97a5">{{ c.sub }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eef2f4">
+      <span style="width:8px;height:8px;border-radius:50%;background:#b23025;display:inline-block"></span>
+      <span style="font-size:14px;font-weight:800;color:#16324f">Demandas que exigem atenção</span>
+      <span style="font-size:11px;color:#8a97a5">Fila priorizada — a lista mais importante da tela</span>
+      <button onClick="{{ go }}" style="margin-left:auto;font-size:11.5px;font-weight:700;color:#1f4e79">Ver todas as pendências →</button>
+    </div>
+    <div style="overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr>
+          <th style="text-align:left;padding:9px 16px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Alerta</th>
+          <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">e-DOC</th>
+          <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Objeto</th>
+          <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Quem cobrar</th>
+          <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Ação recomendada</th>
+          <th style="text-align:center;padding:9px 16px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Dias</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ demandas }}" as="r" hint-placeholder-count="8">
+            <tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+              <td style="padding:11px 16px;border-bottom:1px solid #f0f3f5"><span style="{{ r.alertaStyle }}">{{ r.alerta }}</span></td>
+              <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+              <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:360px">{{ r.obj }}</td>
+              <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;color:#3a4855;white-space:nowrap">{{ r.cobrar }}</td>
+              <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:280px">{{ r.acao }}</td>
+              <td style="padding:11px 16px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:16px 18px">
+      <div style="font-size:13px;font-weight:800;color:#16324f;margin-bottom:4px">Gargalos por órgão</div>
+      <div style="font-size:11px;color:#8a97a5;margin-bottom:14px">Onde os processos estão parados</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ gargOrgao }}" as="o" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="flex:none;width:104px;font-size:12px;font-weight:600;color:#2a3846;text-align:right">{{ o.k }}</span>
+            <div style="flex:1;height:14px;background:#eef2f4;border-radius:7px;overflow:hidden"><div style="height:100%;width:{{ o.pct }};background:#2f6da3;border-radius:7px"></div></div>
+            <span style="flex:none;width:40px;font-size:12px;font-weight:800;color:#16324f;text-align:right">{{ o.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:16px 18px">
+      <div style="font-size:13px;font-weight:800;color:#16324f;margin-bottom:4px">Gargalos por etapa</div>
+      <div style="font-size:11px;color:#8a97a5;margin-bottom:14px">Distribuição por fase do fluxo</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ gargFase }}" as="f" hint-placeholder-count="10">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="flex:none;width:132px;font-size:11.5px;font-weight:600;color:#2a3846;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.k }}</span>
+            <div style="flex:1;height:14px;background:#eef2f4;border-radius:7px;overflow:hidden"><div style="height:100%;width:{{ f.pct }};background:#2f7d5b;border-radius:7px"></div></div>
+            <span style="flex:none;width:36px;font-size:12px;font-weight:800;color:#16324f;text-align:right">{{ f.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:16px 18px;margin-top:16px">
+    <div style="font-size:13px;font-weight:800;color:#16324f;margin-bottom:12px">Projetos estratégicos em risco</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+      <sc-for list="{{ projetosRisco }}" as="p" hint-placeholder-count="6">
+        <button onClick="{{ p.open }}" style="text-align:left;border:1px solid #eef2f4;border-radius:10px;padding:13px 14px;background:#fafbfc;display:flex;flex-direction:column;gap:7px" style-hover="border-color:#d3dbe2;background:#fff">
+          <div style="display:flex;align-items:flex-start;gap:8px"><span style="font-size:13px;font-weight:700;color:#16324f;line-height:1.25">{{ p.nome }}</span><span style="{{ p.riscoStyle }};margin-left:auto;flex:none">{{ p.risco }}</span></div>
+          <div style="font-size:11px;color:#8a97a5">{{ p.eixo }} · {{ p.qtd }} e-DOC(s) vinculado(s)</div>
+          <div style="font-size:12px;color:#4a5866;line-height:1.4"><b style="color:#2a3846">Pendência:</b> {{ p.pend }}</div>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ============ PENDÊNCIAS ============ -->
+<sc-if value="{{ is.pendencias }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Panorama</div>
+    <h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Pendências Executivas</h1>
+    <p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Priorização por urgência declarada, fase, dependência externa, dias sem movimentação e divergências.</p>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    <sc-for list="{{ pendModes }}" as="m" hint-placeholder-count="5">
+      <button onClick="{{ m.go }}" style="{{ m.style }}" style-hover="border-color:#c3ccd4">{{ m.label }}</button>
+    </sc-for>
+  </div>
+  <sc-if value="{{ pendDespacho }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:10px;background:#0f2842;color:#dbe6f0;border-radius:10px;padding:12px 16px;margin-bottom:14px">
+      <span style="font-size:13px;font-weight:800;color:#fff">Pauta para despacho</span>
+      <span style="font-size:12px;color:#a9c0d6">Apenas processos que exigem decisão do Chefe de Gabinete ou da Secretária.</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{ pendFlat }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden">
+      <div style="overflow:auto;max-height:70vh">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr>
+            <th style="text-align:left;padding:9px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Alerta</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Assunto</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Setor / Órgão</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Motivo do alerta</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Quem cobrar</th>
+            <th style="text-align:center;padding:9px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Dias</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ pendRows }}" as="r" hint-placeholder-count="12">
+              <tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+                <td style="padding:10px 16px;border-bottom:1px solid #f0f3f5"><span style="{{ r.alertaStyle }}">{{ r.alerta }}</span></td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:320px">{{ r.obj }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap"><div>{{ r.setor }}</div><div style="font-size:10.5px;color:#8a97a5">{{ r.orgao }}</div></td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:260px">{{ r.motivo }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#3a4855;white-space:nowrap">{{ r.cobrar }}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ pendGrouped }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{ pendGrouped }}" as="grp" hint-placeholder-count="4">
+        <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:#f4f7f9;border-bottom:1px solid #e6eaee">
+            <span style="font-size:13px;font-weight:800;color:#16324f">{{ grp.name }}</span>
+            <span style="font-size:11px;font-weight:700;color:#5b6b7b;background:#e4ebf0;padding:1px 9px;border-radius:10px">{{ grp.count }}</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <tbody>
+              <sc-for list="{{ grp.rows }}" as="r" hint-placeholder-count="3">
+                <tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+                  <td style="padding:9px 16px;border-bottom:1px solid #f0f3f5;width:96px"><span style="{{ r.alertaStyle }}">{{ r.alerta }}</span></td>
+                  <td style="padding:9px 12px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap;width:88px">{{ r.edoc }}</td>
+                  <td style="padding:9px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846">{{ r.obj }}</td>
+                  <td style="padding:9px 16px;border-bottom:1px solid #f0f3f5;text-align:center;width:64px"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</sc-if>
+
+<!-- ============ PROCESSOS ============ -->
+<sc-if value="{{ is.processos }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:16px">
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Consulta</div>
+      <h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Processos</h1>
+    </div>
+    <div style="margin-left:auto;font-size:12.5px;color:#66747f;padding-bottom:3px">Exibindo <b style="color:#16324f">{{ procCount }}</b> de {{ procTotal }} e-DOCs (amostra). <span style="color:#8a97a5">Colunas personalizáveis · ordenação · paginação.</span></div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+    <div style="flex:none;width:212px;background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:15px 15px 18px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a97a5;margin-bottom:12px">Filtros</div>
+      <div style="display:flex;flex-direction:column;gap:13px">
+        <div><div style="font-size:11px;font-weight:700;color:#4a5866;margin-bottom:5px">Área</div><div style="border:1px solid #dde3e8;border-radius:7px;padding:7px 9px;font-size:12px;color:#8a97a5;display:flex;justify-content:space-between">Todas <span>▾</span></div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#4a5866;margin-bottom:5px">Órgão macro</div><div style="border:1px solid #dde3e8;border-radius:7px;padding:7px 9px;font-size:12px;color:#8a97a5;display:flex;justify-content:space-between">Todos <span>▾</span></div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#4a5866;margin-bottom:5px">Fase</div><div style="border:1px solid #dde3e8;border-radius:7px;padding:7px 9px;font-size:12px;color:#8a97a5;display:flex;justify-content:space-between">Todas <span>▾</span></div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#4a5866;margin-bottom:5px">Prioridade</div><div style="display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:11px;padding:3px 9px;border-radius:14px;background:#fdf1dd;color:#a5620a;font-weight:700">Alta</span><span style="font-size:11px;padding:3px 9px;border-radius:14px;background:#eef2f4;color:#7a8896;font-weight:600">Média</span><span style="font-size:11px;padding:3px 9px;border-radius:14px;background:#eef2f4;color:#7a8896;font-weight:600">Baixa</span></div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a5866;cursor:pointer"><input type="checkbox" /> Só com divergência</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a5866;cursor:pointer"><input type="checkbox" /> Só vínculo estratégico</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a5866;cursor:pointer"><input type="checkbox" /> Só com valor financeiro</label>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden">
+      <div style="overflow:auto;max-height:72vh">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr>
+            <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Objeto</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Área</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Setor atual</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Fase</th>
+            <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Prioridade</th>
+            <th style="text-align:center;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Dias</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ procRows }}" as="r" hint-placeholder-count="14">
+              <tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+                <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:340px">{{ r.obj }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap">{{ r.area }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;max-width:200px">{{ r.setor }}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.faseStyle }}">{{ r.fase }}</span></td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.prioStyle }}">{{ r.prio }}</span></td>
+                <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ============ DETALHE ============ -->
+<sc-if value="{{ is.detalhe }}" hint-placeholder-val="{{ false }}">
+  <button onClick="{{ dBack }}" style="font-size:12.5px;font-weight:700;color:#1f4e79;margin-bottom:12px">&larr; Voltar para Processos</button>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden">
+    <div style="padding:20px 22px;border-bottom:1px solid #eef2f4;background:#f8fafb">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:20px;font-weight:800;color:#16324f;letter-spacing:-.3px">e-DOC {{ d.edoc }}</span>
+        <span style="{{ dAlertaStyle }}">{{ d.alerta }}</span>
+        <span style="{{ dPrioStyle }}">{{ d.prio }}</span>
+        <span style="{{ dFaseStyle }}">{{ d.fase }}</span>
+      </div>
+      <div style="font-size:14px;color:#2a3846;line-height:1.5;max-width:90ch">{{ d.obj }}</div>
+      <div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:14px">
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700">Área</div><div style="font-size:13px;font-weight:600;color:#2a3846">{{ d.area }}</div></div>
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700">Setor atual</div><div style="font-size:13px;font-weight:600;color:#2a3846">{{ d.setor }}</div></div>
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700">Órgão macro</div><div style="font-size:13px;font-weight:600;color:#2a3846">{{ d.orgao }}</div></div>
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700">Responsável / detentor</div><div style="font-size:13px;font-weight:600;color:#2a3846">{{ d.resp }}</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:2px;padding:0 14px;border-bottom:1px solid #e6eaee;overflow-x:auto">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="8">
+        <button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <div style="padding:20px 22px">
+      <sc-if value="{{ tG }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:22px">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="border:1px solid #eef2f4;border-radius:10px;padding:14px 16px;background:#fafbfc">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700;margin-bottom:6px">Último trâmite</div>
+              <div style="font-size:13px;color:#2a3846;line-height:1.5">{{ d.status }}</div>
+              <div style="font-size:11.5px;color:#8a97a5;margin-top:6px">Data do último trâmite: {{ d.data }}</div>
+            </div>
+            <div style="border:1px solid #d9ead6;border-radius:10px;padding:14px 16px;background:#f3f9f4">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#2f7d5b;font-weight:700;margin-bottom:6px">Próximo passo</div>
+              <div style="font-size:13px;color:#25402f;line-height:1.5">{{ d.prox }}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="border:1px solid #eef2f4;border-radius:10px;padding:14px 16px">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a97a5;font-weight:700;margin-bottom:10px">Quem precisa agir</div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="flex:none;width:9px;height:9px;border-radius:50%;background:#b23025"></span><span style="font-size:13px;font-weight:700;color:#2a3846">{{ d.cobrar }}</span></div>
+              <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#66747f">Parado há</span><span style="{{ dDiasStyle }}">{{ d.dias }} dias</span></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ tH_has }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:0;border-left:2px solid #e2e8ee;margin-left:6px;padding-left:22px">
+          <sc-for list="{{ dHist }}" as="h" hint-placeholder-count="3">
+            <div style="position:relative;padding:0 0 20px">
+              <span style="position:absolute;left:-29px;top:2px;width:11px;height:11px;border-radius:50%;background:#2f7d5b;border:2px solid #fff;box-shadow:0 0 0 1px #cfe0d6"></span>
+              <div style="font-size:11.5px;font-weight:700;color:#16324f">{{ h.data }} · {{ h.setor }}</div>
+              <div style="font-size:12.5px;color:#3a4855;line-height:1.5;margin-top:3px">{{ h.status }}</div>
+              <div style="font-size:10.5px;color:#8a97a5;margin-top:4px">Fonte: {{ h.fonte }} · {{ h.aba }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ tH_empty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">◷</div><div style="font-size:13px;font-weight:600;color:#66747f">Histórico consolidado em uma única posição</div><div style="font-size:12px;margin-top:3px">A trilha completa de trâmites deste e-DOC está preservada em Registros Fonte.</div></div>
+      </sc-if>
+      <sc-if value="{{ tP_has }}" hint-placeholder-val="{{ false }}">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Projeto / Programa</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Eixo/Área</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Tipo de vínculo</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Observação</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ dVinc }}" as="v" hint-placeholder-count="2">
+              <tr><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;font-weight:600;color:#16324f">{{ v.proj }}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866">{{ v.eixo }}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ v.tipoStyle }}">{{ v.tipo }}</span></td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f">{{ v.obs }}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </sc-if>
+      <sc-if value="{{ tP_empty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">◇</div><div style="font-size:13px;font-weight:600;color:#66747f">Nenhum projeto ou programa vinculado localizado</div><div style="font-size:12px;margin-top:3px">Este e-DOC não possui vínculo estratégico registrado nas fontes atuais.</div></div>
+      </sc-if>
+      <sc-if value="{{ tT }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid #eef2f4;border-radius:10px;padding:16px;background:#fafbfc;font-size:13px;color:#3a4855;line-height:1.6">Setor atual consolidado: <b style="color:#16324f">{{ d.setor }}</b> ({{ d.orgao }}). Fase derivada: <b>{{ d.fase }}</b>. As tramitações detalhadas por setor são reconstruídas a partir dos <b>Registros Fonte</b> — veja a aba Histórico para a linha do tempo com fonte de cada movimento.</div>
+      </sc-if>
+      <sc-if value="{{ tVal_has }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:14px;color:#2a3846">Valor estimado consolidado: <b style="color:#16324f">{{ dValor }}</b></div>
+      </sc-if>
+      <sc-if value="{{ tVal_empty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">—</div><div style="font-size:13px;font-weight:600;color:#66747f">Sem valor financeiro informado</div><div style="font-size:12px;margin-top:3px">Nenhuma fonte registrou valor estimado para este processo.</div></div>
+      </sc-if>
+      <sc-if value="{{ tM }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">◎</div><div style="font-size:13px;font-weight:600;color:#66747f">Sem município associado a este e-DOC</div><div style="font-size:12px;margin-top:3px">Entregas territoriais deste processo aparecerão aqui quando vinculadas.</div></div>
+      </sc-if>
+      <sc-if value="{{ tF_has }}" hint-placeholder-val="{{ false }}">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Arquivo de origem</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Aba / Página</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Data da fonte</th><th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee">Informação</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ dHist2 }}" as="hf" hint-placeholder-count="2">
+              <tr><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#1f4e79;font-weight:600">{{ hf.fonte }}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866">{{ hf.aba }}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866">{{ hf.data }}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f">{{ hf.status }}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </sc-if>
+      <sc-if value="{{ tF_empty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">◷</div><div style="font-size:13px;font-weight:600;color:#66747f">Fontes reunidas na posição consolidada</div><div style="font-size:12px;margin-top:3px">A rastreabilidade completa deste e-DOC está em Registros Fonte.</div></div>
+      </sc-if>
+      <sc-if value="{{ tDv_has }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ dDiverg }}" as="dv" hint-placeholder-count="1">
+          <div style="border:1px solid #ead9f6;background:#faf5fe;border-radius:10px;padding:14px 16px;margin-bottom:10px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="{{ dv.prioStyle }}">{{ dv.prio }}</span><b style="color:#6b3fa0;font-size:13px">{{ dv.desc }}</b></div><div style="font-size:12.5px;color:#4a5866">{{ dv.evid }}</div><div style="font-size:12px;color:#2f7d5b;margin-top:6px">Ação: {{ dv.acao }}</div></div>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{ tDv_empty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 20px;color:#8a97a5"><div style="font-size:26px;margin-bottom:6px">✓</div><div style="font-size:13px;font-weight:600;color:#2f7d5b">Sem divergências abertas</div><div style="font-size:12px;margin-top:3px;color:#66747f">As fontes convergem sobre a posição atual deste processo.</div></div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ============ PROJETOS ============ -->
+<sc-if value="{{ is.projetos }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Consulta</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Projetos e Metas</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Uma meta alcançada não significa que todos os processos relacionados estejam concluídos. Acompanhe a cobertura processual de cada projeto.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <sc-for list="{{ projKpis }}" as="c" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e6eaee;border-radius:11px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:#16324f;letter-spacing:-.5px">{{ c.value }}</div><div style="font-size:12px;font-weight:600;color:#4a5866;margin-top:3px">{{ c.label }}</div></div></sc-for>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:16px 18px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:800;color:#16324f;margin-bottom:12px">Cobertura de e-DOC por eixo</div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <sc-for list="{{ eixos }}" as="e" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:12px"><span style="flex:none;width:150px;font-size:12px;font-weight:600;color:#2a3846;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.eixo }}</span><div style="flex:1;height:14px;background:#eef2f4;border-radius:7px;overflow:hidden"><div style="height:100%;width:{{ e.pct }};background:#2f7d5b;border-radius:7px"></div></div><span style="flex:none;width:96px;font-size:11.5px;color:#5b6b7b;text-align:right">{{ e.comEdoc }}/{{ e.total }} com e-DOC</span></div></sc-for>
+    </div>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden">
+    <div style="overflow:auto;max-height:66vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+      <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Projeto / Meta</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Eixo</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Status gestão</th>
+      <th style="text-align:center;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOCs</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Cobertura</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Processos vinculados</th>
+    </tr></thead><tbody>
+      <sc-for list="{{ projRows }}" as="r" hint-placeholder-count="12"><tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+        <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;font-weight:600;color:#16324f;max-width:280px">{{ r.nome }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap">{{ r.eixo }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.statusStyle }}">{{ r.statusOrig }}</span></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;text-align:center;font-weight:700;color:#16324f">{{ r.qtd }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.cobStyle }}">{{ r.cobLabel }}</span></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;font-size:11.5px;max-width:200px">{{ r.procs }}</td>
+      </tr></sc-for>
+    </tbody></table></div>
+  </div>
+</sc-if>
+
+<!-- ============ LICITAÇÕES ============ -->
+<sc-if value="{{ is.licitacoes }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Fluxos críticos</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Licitações</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Instrução, minuta, PGE, publicação, sessão, julgamento, homologação, contratação e execução.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <sc-for list="{{ licKpis }}" as="c" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e6eaee;border-radius:11px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:#16324f;letter-spacing:-.5px">{{ c.value }}</div><div style="font-size:12px;font-weight:600;color:#4a5866;margin-top:3px">{{ c.label }}</div></div></sc-for>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:14px"><sc-for list="{{ licViews }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.go }}" style="{{ v.style }}">{{ v.label }}</button></sc-for></div>
+  <sc-if value="{{ licViewEtapas }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:18px">
+      <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px">
+        <sc-for list="{{ licSteps }}" as="s" hint-placeholder-count="6"><div style="flex:none;min-width:150px;border:1px solid #e6eaee;border-radius:10px;overflow:hidden"><div style="padding:10px 12px;background:#f4f7f9;border-bottom:1px solid #e6eaee;font-size:12px;font-weight:700;color:#16324f;white-space:nowrap">{{ s.name }}</div><div style="padding:16px 12px;text-align:center"><div style="font-size:26px;font-weight:800;color:#2f6da3">{{ s.count }}</div><div style="height:5px;background:#eef2f4;border-radius:3px;margin-top:8px;overflow:hidden"><div style="height:100%;width:{{ s.pct }};background:#2f6da3"></div></div></div></div></sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ licViewTabela }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:66vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+      <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Objeto</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Setor</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Fase</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Próximo passo</th>
+      <th style="text-align:center;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Dias</th>
+    </tr></thead><tbody>
+      <sc-for list="{{ licRows }}" as="r" hint-placeholder-count="12"><tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+        <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:300px">{{ r.obj }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap">{{ r.setor }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.faseStyle }}">{{ r.fase }}</span></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:240px">{{ r.prox }}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+      </tr></sc-for>
+    </tbody></table></div></div>
+  </sc-if>
+</sc-if>
+
+<!-- ============ APLs ============ -->
+<sc-if value="{{ is.apls }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Fluxos críticos</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Arranjos Produtivos Locais</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Um mesmo APL pode reunir processo principal, edital, termo de cooperação, aquisição, assistência técnica e processo territorial.</p></div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:70vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+    <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">APL / Objeto</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Área</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Setor</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Estágio</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Próximo passo</th>
+    <th style="text-align:center;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Dias</th>
+  </tr></thead><tbody>
+    <sc-for list="{{ aplRows }}" as="r" hint-placeholder-count="12"><tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:240px"><div style="font-weight:600;color:#16324f">{{ r.prog }}</div><div style="font-size:11px;color:#8a97a5">{{ r.obj }}</div></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap">{{ r.area }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;white-space:nowrap">{{ r.setor }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.faseStyle }}">{{ r.fase }}</span></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:220px">{{ r.prox }}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+    </tr></sc-for>
+  </tbody></table></div></div>
+</sc-if>
+
+<!-- ============ PGE ============ -->
+<sc-if value="{{ is.pge }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Fluxos críticos</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Dependências na PGE</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Destaque para o que depende da PGE, da SEASIC, da assinatura da Secretária ou de complementação documental.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <sc-for list="{{ pgeKpis }}" as="c" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e6eaee;border-radius:11px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:#6b3fa0;letter-spacing:-.5px">{{ c.value }}</div><div style="font-size:12px;font-weight:600;color:#4a5866;margin-top:3px">{{ c.label }}</div></div></sc-for>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:66vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+    <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Objeto</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Coordenação / setor</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Providência</th>
+    <th style="text-align:center;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Depende de</th>
+    <th style="text-align:center;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Dias</th>
+  </tr></thead><tbody>
+    <sc-for list="{{ pgeRows }}" as="r" hint-placeholder-count="12"><tr onClick="{{ r.open }}" style="cursor:pointer" style-hover="background:#f7fafb">
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.edoc }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:300px">{{ r.obj }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;max-width:200px">{{ r.setor }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:220px">{{ r.prox }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.depStyle }}">{{ r.dep }}</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5;text-align:center"><span style="{{ r.diasStyle }}">{{ r.dias }}</span></td>
+    </tr></sc-for>
+  </tbody></table></div></div>
+</sc-if>
+
+<!-- ============ TERRITÓRIOS ============ -->
+<sc-if value="{{ is.territorios }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Consulta</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Territórios</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Entregas, obras e processos por município. O mapa é um apoio — a lista permanece sempre disponível.</p></div>
+  <div style="display:flex;gap:6px;margin-bottom:14px"><sc-for list="{{ terrViews }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.go }}" style="{{ v.style }}">{{ v.label }}</button></sc-for></div>
+  <sc-if value="{{ terrIsMapa }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;gap:16px;align-items:stretch">
+      <div style="flex:1;min-width:0;background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden;height:70vh"><iframe src="mapa-sergipe.html" style="width:100%;height:100%;border:none"></iframe></div>
+      <div style="flex:none;width:320px;background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:auto;height:70vh">
+        <div style="padding:12px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a97a5;border-bottom:1px solid #eef2f4;position:sticky;top:0;background:#fff">Municípios com entregas</div>
+        <sc-for list="{{ terrMun }}" as="m" hint-placeholder-count="8"><div style="padding:11px 16px;border-bottom:1px solid #f0f3f5"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:12.5px;color:#16324f">{{ m.municipio }}</b><span style="font-size:11px;color:#8a97a5">{{ m.count }}</span></div><sc-for list="{{ m.items }}" as="i" hint-placeholder-count="1"><div style="font-size:11px;color:#66747f;margin-top:4px"><span style="{{ i.etapaStyle }};font-size:9.5px;padding:1px 6px">{{ i.etapa }}</span> {{ i.prog }}</div></sc-for></div></sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ terrIsLista }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:70vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+      <th style="text-align:left;padding:9px 16px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Município</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Programa</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">e-DOC</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Etapa</th>
+      <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Situação</th>
+    </tr></thead><tbody>
+      <sc-for list="{{ terrMun }}" as="m" hint-placeholder-count="10"><sc-for list="{{ m.items }}" as="i" hint-placeholder-count="1"><tr style-hover="background:#f7fafb">
+        <td style="padding:10px 16px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#16324f;white-space:nowrap">{{ i.municipio }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866">{{ i.prog }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#1f4e79;font-weight:600;white-space:nowrap">{{ i.edoc }}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ i.etapaStyle }}">{{ i.etapa }}</span></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:340px">{{ i.situacao }}</td>
+      </tr></sc-for></sc-for>
+    </tbody></table></div></div>
+  </sc-if>
+  <sc-if value="{{ terrIsProg }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:14px"><sc-for list="{{ terrProg }}" as="grp" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:#f4f7f9;border-bottom:1px solid #e6eaee"><b style="font-size:13px;color:#16324f">{{ grp.prog }}</b><span style="font-size:11px;font-weight:700;color:#5b6b7b;background:#e4ebf0;padding:1px 9px;border-radius:10px">{{ grp.count }} municípios</span></div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody><sc-for list="{{ grp.items }}" as="i" hint-placeholder-count="2"><tr><td style="padding:9px 16px;border-bottom:1px solid #f0f3f5;font-weight:600;color:#16324f;width:200px">{{ i.municipio }}</td><td style="padding:9px 12px;border-bottom:1px solid #f0f3f5;width:120px"><span style="{{ i.etapaStyle }}">{{ i.etapa }}</span></td><td style="padding:9px 12px;border-bottom:1px solid #f0f3f5;color:#66747f">{{ i.situacao }}</td></tr></sc-for></tbody></table></div></sc-for></div>
+  </sc-if>
+</sc-if>
+
+<!-- ============ ÁREAS ============ -->
+<sc-if value="{{ is.areas }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Consulta</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Áreas da SEASIC</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Panorama por área. Clique para abrir a visão consolidada da área com processos, programas, pendências e território.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+    <sc-for list="{{ areaRows }}" as="a" hint-placeholder-count="12"><button onClick="{{ a.open }}" style="text-align:left;background:#fff;border:1px solid #e6eaee;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px" style-hover="border-color:#2f7d5b;box-shadow:0 5px 16px rgba(20,50,79,.08)">
+      <div style="display:flex;align-items:center;justify-content:space-between"><b style="font-size:15px;color:#16324f">{{ a.area }}</b><span style="font-size:22px;font-weight:800;color:#16324f">{{ a.total }}</span></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div><div style="font-size:20px;font-weight:800;color:#b23025;line-height:1">{{ a.criticos }}</div><div style="font-size:10.5px;color:#8a97a5;font-weight:600">críticos</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:#a5620a;line-height:1">{{ a.parados }}</div><div style="font-size:10.5px;color:#8a97a5;font-weight:600">parados ≥90d</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:#2f6da3;line-height:1">{{ a.externos }}</div><div style="font-size:10.5px;color:#8a97a5;font-weight:600">órgão externo</div></div>
+        <div><div style="font-size:20px;font-weight:800;color:#2f7d5b;line-height:1">{{ a.concluidos }}</div><div style="font-size:10.5px;color:#8a97a5;font-weight:600">concluídos</div></div>
+      </div>
+    </button></sc-for>
+  </div>
+</sc-if>
+
+<!-- ============ DIVERGÊNCIAS ============ -->
+<sc-if value="{{ is.divergencias }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Governança</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Divergências</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Ferramenta de qualidade da informação — não é erro do sistema. Valide no e-DOC antes de usar um dado conflitante como posição oficial.</p></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+    <sc-for list="{{ divKpis }}" as="c" hint-placeholder-count="3"><div style="background:#fff;border:1px solid #e6eaee;border-radius:11px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:#6b3fa0;letter-spacing:-.5px">{{ c.value }}</div><div style="font-size:12px;font-weight:600;color:#4a5866;margin-top:3px">{{ c.label }}</div></div></sc-for>
+  </div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:68vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+    <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Prioridade</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Tipo</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Chave</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Descrição / evidência</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Ação recomendada</th>
+  </tr></thead><tbody>
+    <sc-for list="{{ divRows }}" as="r" hint-placeholder-count="12"><tr style-hover="background:#f7fafb">
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f3f5"><span style="{{ r.prioStyle }}">{{ r.prio }}</span></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5"><span style="{{ r.tipoStyle }}">{{ r.tipo }}</span></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;white-space:nowrap">{{ r.chave }}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#2a3846;max-width:340px"><div>{{ r.desc }}</div><div style="font-size:11px;color:#8a97a5;margin-top:2px">{{ r.evid }}</div></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:240px">{{ r.acao }}</td>
+    </tr></sc-for>
+  </tbody></table></div></div>
+</sc-if>
+
+<!-- ============ FONTES ============ -->
+<sc-if value="{{ is.fontes }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#8a97a5">Governança</div><h1 style="margin:3px 0 0;font-size:23px;font-weight:800;letter-spacing:-.3px;color:#16324f">Fontes e Auditoria</h1><p style="margin:5px 0 0;font-size:13px;color:#66747f;max-width:74ch">Rastreabilidade obrigatória: {{ fonteTotalReg }} registros importados. Cada informação pode ser rastreada até o arquivo, aba e data de origem.</p></div>
+  <div style="background:#fff;border:1px solid #e6eaee;border-radius:12px;overflow:hidden"><div style="overflow:auto;max-height:72vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>
+    <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Arquivo / Fonte</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Finalidade</th>
+    <th style="text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Áreas</th>
+    <th style="text-align:center;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Data-base</th>
+    <th style="text-align:center;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Registros</th>
+    <th style="text-align:left;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#6a7887;background:#f7f9fa;border-bottom:1px solid #e6eaee;position:sticky;top:0">Observação de qualidade</th>
+  </tr></thead><tbody>
+    <sc-for list="{{ fonteRows }}" as="r" hint-placeholder-count="9"><tr style-hover="background:#f7fafb">
+      <td style="padding:11px 14px;border-bottom:1px solid #f0f3f5;font-weight:700;color:#1f4e79;max-width:230px">{{ r.arquivo }}</td>
+      <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;color:#4a5866;max-width:240px">{{ r.finalidade }}</td>
+      <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;color:#66747f;max-width:180px">{{ r.areas }}</td>
+      <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;text-align:center;color:#4a5866;white-space:nowrap">{{ r.data }}</td>
+      <td style="padding:11px 12px;border-bottom:1px solid #f0f3f5;text-align:center;font-weight:700;color:#16324f">{{ r.registros }}</td>
+      <td style="padding:11px 14px;border-bottom:1px solid #f0f3f5;color:#8a97a5;max-width:260px">{{ r.obs }}</td>
+    </tr></sc-for>
+  </tbody></table></div></div>
+</sc-if>
+
+    </main>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen:'home', collapsed:false, proc:null, tab:'geral', query:'',
+            pendMode:'lista', licView:'etapas', terrView:'lista', ready:false };
+  contentRef = React.createRef();
+
+  componentDidMount(){
+    if(window.SEASIC){ this.D=window.SEASIC; this.setState({ready:true}); }
+    else { this._iv=setInterval(()=>{ if(window.SEASIC){ this.D=window.SEASIC; clearInterval(this._iv); this.setState({ready:true}); } },80); }
+  }
+  componentWillUnmount(){ if(this._iv) clearInterval(this._iv); }
+
+  go(screen){ this.setState({screen}); const r=this.contentRef.current; if(r) r.scrollTop=0; window.scrollTo && window.scrollTo(0,0); }
+  openProc(p){ this.setState({proc:p, screen:'detalhe', tab:'geral'}); }
+  toggleSidebar(){ this.setState(s=>({collapsed:!s.collapsed})); }
+  onQuery(e){ this.setState({query:e.target.value}); }
+  onSearchKey(e){ if(e.key==='Enter'){ this.setState({screen:'processos'}); } }
+  openFilters(){ /* placeholder */ }
+  setTab(t){ this.setState({tab:t}); }
+  setPendMode(m){ this.setState({pendMode:m}); }
+  setLicView(v){ this.setState({licView:v}); }
+  setTerrView(v){ this.setState({terrView:v}); }
+
+  sem(label){
+    const l=(label||'').toString().toLowerCase(); let c=['#eef1f4','#5b6b7b'];
+    if(/crít|critic/.test(l)) c=['#fbeae7','#b23025'];
+    else if(/diverg/.test(l)) c=['#f1eafb','#6b3fa0'];
+    else if(/^alto|^alta|aten|urg/.test(l)) c=['#fdf1dd','#a5620a'];
+    else if(/monitor|^m[eé]dia/.test(l)) c=['#e7f0fa','#2b6cb0'];
+    else if(/conclu|finaliz|homolog|assinad/.test(l)) c=['#e6f2ec','#2f7d5b'];
+    else if(/suspe|arquiv/.test(l)) c=['#eceff2','#61708a'];
+    else if(/andamento|acompanh|instru|an[aá]lise/.test(l)) c=['#e7f0fa','#2b6cb0'];
+    return `display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;background:${c[0]};color:${c[1]}`;
+  }
+  dstyle(n){ n=+n||0; let c=['#eef1f4','#5b6b7b'];
+    if(n>=180) c=['#fbeae7','#b23025']; else if(n>=90) c=['#fdf1dd','#a5620a']; else if(n>=30) c=['#eef4f8','#3a6ea5'];
+    return `display:inline-block;min-width:34px;text-align:center;padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:700;background:${c[0]};color:${c[1]}`;
+  }
+  abbr(label){ return label.replace(/[^A-Za-zÀ-ÿ ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+
+  renderVals(){
+    const S=this.state, D=this.D||{}, self=this;
+    const expanded=!S.collapsed;
+    const scr=S.screen;
+
+    // ---------- NAV ----------
+    const navDef=[
+      {title:'Início', items:[['home','Início · Mapa']]},
+      {title:'Panorama', items:[['exec','Visão Executiva'],['pendencias','Pendências',D.kpis&&D.kpis.criticos]]},
+      {title:'Consulta', items:[['processos','Processos'],['projetos','Projetos e Metas'],['territorios','Territórios'],['areas','Áreas da SEASIC']]},
+      {title:'Fluxos críticos', items:[['licitacoes','Licitações'],['apls','APLs'],['pge','PGE']]},
+      {title:'Governança', items:[['divergencias','Divergências',D.kpis&&D.kpis.divergencias],['fontes','Fontes e Auditoria']]},
+    ];
+    const activeId = scr==='detalhe' ? 'processos' : scr;
+    const navGroups=navDef.map(g=>({ title:g.title, items:g.items.map(([id,label,badge])=>{
+      const on=activeId===id;
+      return { id, label, go:()=>self.go(id),
+        style:`display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 10px;margin:1px 0;border-radius:8px;font-size:12.5px;font-weight:${on?700:600};color:${on?'#fff':'#c3d1df'};background:${on?'rgba(47,125,91,.9)':'transparent'};border-left:3px solid ${on?'#7fd6ab':'transparent'}`,
+        dot:`flex:none;width:6px;height:6px;border-radius:50%;background:${on?'#bff0d7':'#48607a'}`,
+        showBadge: badge!=null, badge, badgeStyle:`margin-left:auto;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${on?'rgba(255,255,255,.22)':'rgba(255,255,255,.1)'};color:${on?'#fff':'#9fb3c8'}` };
+    }) }));
+
+    // ---------- TOPBAR ----------
+    const titles={home:'Mapa de Navegação',exec:'Visão Executiva',pendencias:'Pendências Executivas',processos:'Processos',detalhe:'Detalhe do Processo',projetos:'Projetos e Metas',licitacoes:'Licitações',apls:'APLs',pge:'PGE',territorios:'Territórios',areas:'Áreas da SEASIC',divergencias:'Divergências',fontes:'Fontes e Auditoria'};
+    let crumbLabels=['Radar Gabinete', titles[scr]||''];
+    if(scr==='detalhe' && S.proc) crumbLabels=['Radar Gabinete','Processos','e-DOC '+S.proc.edoc];
+    const breadcrumb=crumbLabels.map((label,i)=>({ label, sep:i<crumbLabels.length-1,
+      style:`font-weight:${i===crumbLabels.length-1?700:600};color:${i===crumbLabels.length-1?'#1b2733':'#7a8896'}` }));
+
+    const is={ home:scr==='home',exec:scr==='exec',pendencias:scr==='pendencias',processos:scr==='processos',detalhe:scr==='detalhe',projetos:scr==='projetos',licitacoes:scr==='licitacoes',apls:scr==='apls',pge:scr==='pge',territorios:scr==='territorios',areas:scr==='areas',divergencias:scr==='divergencias',fontes:scr==='fontes' };
+
+    const base={ expanded, sbWidth: expanded?'250px':'66px', collapseIcon: expanded?'«':'»',
+      navGroups, breadcrumb, is, notReady:!S.ready, dataBase:D.dataBase||'—',
+      query:S.query, onQuery:e=>self.onQuery(e), onSearchKey:e=>self.onSearchKey(e),
+      toggleSidebar:()=>self.toggleSidebar(), openFilters:()=>self.openFilters(),
+      contentRef:this.contentRef, go:(s)=>self.go(s) };
+
+    if(!S.ready) return base;
+    return Object.assign(base, this.screenVals(D, S, self));
+  }
+
+  screenVals(D, S, self){
+    const sem=(l)=>this.sem(l), dstyle=(n)=>this.dstyle(n);
+    const V={};
+
+    // ===== HOME / MAPA =====
+    V.navMap=[
+      {n:'01',t:'Visão Executiva',d:'Indicadores de decisão, demandas urgentes e gargalos por órgão.',go:()=>self.go('exec')},
+      {n:'02',t:'Pendências Executivas',d:'Fila priorizada de cobranças, "quem cobrar" e pauta para despacho.',go:()=>self.go('pendencias')},
+      {n:'03',t:'Processos',d:'Consulta completa por e-DOC com filtros, colunas e alertas.',go:()=>self.go('processos')},
+      {n:'04',t:'Projetos e Metas',d:'Cobertura processual dos 194 projetos da Gestão.',go:()=>self.go('projetos')},
+      {n:'05',t:'Licitações',d:'Fases de instrução, PGE, publicação, homologação e contratação.',go:()=>self.go('licitacoes')},
+      {n:'06',t:'APLs',d:'Arranjos produtivos: edital, cooperação, aquisição e assistência.',go:()=>self.go('apls')},
+      {n:'07',t:'PGE',d:'Dependências jurídicas, pareceres e exigências.',go:()=>self.go('pge')},
+      {n:'08',t:'Territórios',d:'Entregas por município — mapa de Sergipe e lista.',go:()=>self.go('territorios')},
+      {n:'09',t:'Áreas da SEASIC',d:'Panorama por DSANIP, Assistência, Habitação, CCL, USCI…',go:()=>self.go('areas')},
+      {n:'10',t:'Divergências',d:'Governança e qualidade da informação a validar.',go:()=>self.go('divergencias')},
+      {n:'11',t:'Fontes e Auditoria',d:'Rastreabilidade: qual arquivo, aba e data gerou cada dado.',go:()=>self.go('fontes')},
+    ].map(x=>({...x, go:x.go}));
+
+    // ===== EXECUTIVA =====
+    const k=D.kpis;
+    V.kpiCards=[
+      {label:'Processos monitorados',value:k.total,sub:'e-DOCs únicos consolidados',tone:'#16324f',go:()=>self.go('processos')},
+      {label:'Processos críticos',value:k.criticos,sub:'exigem atenção imediata',tone:'#b23025',go:()=>self.go('pendencias')},
+      {label:'Sem movimentação',value:k.semMov,sub:'≥ 90 dias parados',tone:'#a5620a',go:()=>self.go('pendencias')},
+      {label:'Na SECLOG',value:k.seclog,sub:'processos licitatórios',tone:'#2b6cb0',go:()=>self.go('processos')},
+      {label:'Na PGE',value:k.pge,sub:'dependência jurídica',tone:'#6b3fa0',go:()=>self.go('pge')},
+      {label:'Aguardando decisão',value:k.aguardandoDecisao,sub:'assinatura / autorização',tone:'#2f7d5b',go:()=>self.go('pendencias')},
+    ].map(c=>({...c, valueStr:String(c.value)}));
+
+    const maxO=Math.max(...D.gargalosOrgao.map(x=>x.v));
+    V.gargOrgao=D.gargalosOrgao.map(x=>({...x, pct:Math.round(x.v/maxO*100)+'%'}));
+    const maxF=Math.max(...D.gargalosFase.map(x=>x.v));
+    V.gargFase=D.gargalosFase.map(x=>({...x, pct:Math.round(x.v/maxF*100)+'%'}));
+
+    V.demandas=D.pendencias.slice(0,8).map(p=>({...p, alertaStyle:sem(p.alerta), diasStyle:dstyle(p.dias), open:()=>self.openProc(this.norm(p))}));
+
+    V.projetosRisco=D.projetos.filter(p=>!/conclu/i.test(p.statusOrig)).slice(0,6).map(p=>{
+      const semEdoc=/sem correspond/i.test(p.situacao)||p.qtd===0;
+      const risco=semEdoc?'Alta':(/andamento/i.test(p.statusOrig)?'Média':'Monitoramento');
+      return { nome:p.nome, eixo:p.eixo, qtd:p.qtd, pend:semEdoc?'Sem e-DOC localizado':(p.prox||'Acompanhar próxima etapa'), risco, riscoStyle:sem(risco), open:()=>self.go('projetos') };
+    });
+
+    // ===== PENDÊNCIAS =====
+    const decPend=p=>({...p, alertaStyle:sem(p.alerta), diasStyle:dstyle(p.dias), prioMode:p.pont>=10, open:()=>self.openProc(this.norm(p))});
+    const allPend=D.pendencias.map(decPend);
+    const tstyle=(on)=>`padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:700;color:${on?'#16324f':'#5b6b7b'};border:1px solid ${on?'#b9ccc2':'#dde3e8'};background:${on?'#e9f3ee':'#fff'}`;
+    V.pendMode=S.pendMode;
+    V.pendModes=[['lista','Lista'],['orgao','Por órgão'],['area','Por área'],['fase','Por fase'],['despacho','Pauta p/ despacho']].map(([id,label])=>({id,label,style:tstyle(S.pendMode===id),go:()=>self.setPendMode(id)}));
+    if(S.pendMode==='despacho'){ V.pendGrouped=null; V.pendRows=allPend.filter(p=>/crít|critic/i.test(p.alerta)||p.dias>=180); V.pendFlat=true; }
+    else if(S.pendMode==='lista'){ V.pendRows=allPend; V.pendGrouped=null; V.pendFlat=true; }
+    else { const key=S.pendMode==='orgao'?'orgao':S.pendMode==='area'?'area':'fase'; const g={}; allPend.forEach(p=>{const kk=p[key]||'—';(g[kk]=g[kk]||[]).push(p);}); V.pendGrouped=Object.entries(g).sort((a,b)=>b[1].length-a[1].length).map(([name,rows])=>({name,count:rows.length,rows})); V.pendFlat=false; }
+    V.pendDespacho=S.pendMode==='despacho';
+
+    // ===== PROCESSOS =====
+    const q=(S.query||'').toLowerCase().trim();
+    let procs=D.processos;
+    if(q) procs=procs.filter(p=>[p.edoc,p.obj,p.area,p.setor,p.orgao,p.prog].join(' ').toLowerCase().includes(q));
+    V.procRows=procs.map(p=>({...p, prioStyle:sem(p.prio), diasStyle:dstyle(p.dias), faseStyle:sem(p.fase), alertaStyle:sem(p.alerta), open:()=>self.openProc(this.norm(p))}));
+    V.procCount=procs.length; V.procTotal=D.processos.length; V.query=S.query;
+
+    // ===== DETALHE =====
+    if(S.proc){
+      const p=S.proc; const det=(D.detalhes||{})[p.edoc]||{};
+      V.d=p; V.dPrioStyle=sem(p.prio); V.dFaseStyle=sem(p.fase); V.dStatusStyle=sem(p.statusMacro||p.status); V.dDiasStyle=dstyle(p.dias); V.dAlertaStyle=sem(p.alerta||'');
+      V.tab=S.tab;
+      V.tG=S.tab==='geral'; V.tH=S.tab==='hist'; V.tP=S.tab==='proj'; V.tT=S.tab==='tram'; V.tVal=S.tab==='valores'; V.tM=S.tab==='munic'; V.tF=S.tab==='fontesd'; V.tDv=S.tab==='divd';
+      V.dValor=(p.valor&&String(p.valor).trim())?String(p.valor):'';
+      V.tabs=[['geral','Visão geral'],['hist','Histórico'],['proj','Projetos relacionados'],['tram','Tramitações'],['valores','Valores'],['munic','Municípios'],['fontesd','Fontes'],['divd','Divergências']].map(([id,label])=>{const on=S.tab===id;return {id,label,style:`padding:12px 14px;font-size:12.5px;font-weight:700;white-space:nowrap;color:${on?'#16324f':'#8a97a5'};border-bottom:2px solid ${on?'#2f7d5b':'transparent'}`,go:()=>self.setTab(id)};});
+      V.dHist=(det.historico||[]).map(h=>({...h})); V.dHist2=(det.historico||[]).map(h=>({...h}));
+      V.dHasHist=(det.historico||[]).length>0;
+      V.dVinc=(det.vinculos||[]).map(v=>({...v, tipoStyle:sem(v.tipo)}));
+      V.dHasVinc=(det.vinculos||[]).length>0;
+      V.dDiverg=(D.divergencias||[]).filter(dv=>dv.chave===p.edoc).map(dv=>({...dv, prioStyle:sem(dv.prio)}));
+      V.dHasDiverg=V.dDiverg.length>0;
+      V.dBack=()=>self.go('processos');
+      const hasH=V.dHasHist, hasV=V.dHasVinc, hasDv=V.dHasDiverg, hasVal=!!V.dValor;
+      V.tH_has=V.tH&&hasH; V.tH_empty=V.tH&&!hasH;
+      V.tP_has=V.tP&&hasV; V.tP_empty=V.tP&&!hasV;
+      V.tVal_has=V.tVal&&hasVal; V.tVal_empty=V.tVal&&!hasVal;
+      V.tF_has=V.tF&&hasH; V.tF_empty=V.tF&&!hasH;
+      V.tDv_has=V.tDv&&hasDv; V.tDv_empty=V.tDv&&!hasDv;
+    }
+
+    // ===== PROJETOS =====
+    const withE=D.projetos.filter(p=>p.qtd>0).length;
+    V.projKpis=[
+      {label:'Projetos da Gestão',value:D.kpis.projetos},
+      {label:'Com processo identificado',value:D.kpis.projetosComEdoc},
+      {label:'Sem e-DOC localizado',value:D.kpis.projetos-D.kpis.projetosComEdoc},
+      {label:'Em risco / atenção',value:D.projetos.filter(p=>/sem correspond/i.test(p.situacao)).length+'+'},
+    ];
+    V.eixos=D.eixos.map(e=>({...e, pct:Math.round(e.comEdoc/e.total*100)+'%'}));
+    V.projRows=D.projetos.map(p=>{
+      const semEdoc=/sem correspond/i.test(p.situacao)||p.qtd===0;
+      return {...p, statusStyle:sem(p.statusOrig), cobStyle:sem(semEdoc?'Alta':'Concluído'), cobLabel:semEdoc?'Sem e-DOC':'Com e-DOC', open:()=>self.go('projetos')};
+    });
+
+    // ===== LICITAÇÕES =====
+    V.licView=S.licView; V.licViewEtapas=S.licView==='etapas'; V.licViewTabela=S.licView==='tabela';
+    V.licViews=[['etapas','Por etapa'],['tabela','Tabela']].map(([id,label])=>({id,label,style:tstyle(S.licView===id),go:()=>self.setLicView(id)}));
+    const lf=D.licFase||{}; const totLic=Object.values(lf).reduce((a,b)=>a+b,0)||1;
+    const stageOrder=['Análise/Providências','Minuta/Instrução','Análise jurídica/PGE','Publicação','Licitação','Julgamento','Homologação','Contratação','Execução'];
+    V.licSteps=stageOrder.filter(s=>lf[s]!=null).concat(Object.keys(lf).filter(s=>!stageOrder.includes(s))).map(s=>({name:s,count:lf[s]||0,pct:Math.round((lf[s]||0)/totLic*100)+'%'}));
+    V.licKpis=[
+      {label:'Registros de licitação',value:D.kpis.licitacoes},
+      {label:'Na SECLOG',value:D.kpis.seclog},
+      {label:'Análise jurídica / PGE',value:lf['Análise jurídica/PGE']||0},
+      {label:'Homologação pendente',value:lf['Homologação']||0},
+    ];
+    V.licRows=D.licitacoes.map(l=>({...l, faseStyle:sem(l.fase), diasStyle:dstyle(l.dias), statusStyle:sem(l.statusMacro), open:()=>self.openProc(this.norm({edoc:l.edoc,obj:l.obj,area:l.area,setor:l.setor,orgao:l.orgao,fase:l.fase,dias:l.dias,status:l.status,prox:l.prox,prio:'',modalidade:l.modalidade,valor:l.valor,data:l.data,statusMacro:l.statusMacro,prog:l.prog}))}));
+
+    // ===== APLs =====
+    V.aplRows=D.apls.map(a=>({...a, faseStyle:sem(a.fase), diasStyle:dstyle(a.dias), open:()=>self.openProc(this.norm({edoc:a.edoc,obj:a.obj,area:a.area,setor:a.setor,orgao:a.orgao,fase:a.fase,dias:a.dias,status:a.status,prox:a.prox,prog:a.prog}))}));
+
+    // ===== PGE =====
+    V.pgeKpis=[
+      {label:'Atualmente na PGE',value:D.kpis.pge},
+      {label:'Análise jurídica / parecer',value:(D.licFase&&D.licFase['Análise jurídica/PGE'])||52},
+      {label:'Aguardando SEASIC',value:D.pge.filter(p=>/seasic|complement|informa/i.test(p.prox||'')).length},
+      {label:'Sem movimentação ≥180d',value:D.pge.filter(p=>p.dias>=180).length},
+    ];
+    V.pgeRows=D.pge.map(p=>({...p, faseStyle:sem(p.fase), diasStyle:dstyle(p.dias), dep:(p.dias>=180?'PGE':'SEASIC'), depStyle:sem(p.dias>=180?'Atenção':'Monitoramento'), open:()=>self.openProc(this.norm({edoc:p.edoc,obj:p.obj,area:p.area,setor:p.setor,orgao:'PGE',fase:p.fase,dias:p.dias,status:p.status,prox:p.prox}))}));
+
+    // ===== TERRITÓRIOS =====
+    V.terrView=S.terrView; V.terrIsMapa=S.terrView==='mapa'; V.terrIsLista=S.terrView==='lista'; V.terrIsProg=S.terrView==='programa';
+    V.terrViews=[['lista','Lista por município'],['mapa','Mapa de Sergipe'],['programa','Por programa']].map(([id,label])=>({id,label,style:tstyle(S.terrView===id),go:()=>self.setTerrView(id)}));
+    const byMun={}; D.territorios.forEach(t=>{(byMun[t.municipio]=byMun[t.municipio]||[]).push(t);});
+    V.terrMun=Object.entries(byMun).sort((a,b)=>a[0].localeCompare(b[0])).map(([mun,items])=>({municipio:mun,count:items.length,items:items.map(i=>({...i,etapaStyle:sem(i.etapa)}))}));
+    const byProg={}; D.territorios.forEach(t=>{(byProg[t.prog]=byProg[t.prog]||[]).push(t);});
+    V.terrProg=Object.entries(byProg).sort((a,b)=>b[1].length-a[1].length).map(([prog,items])=>({prog,count:items.length,items:items.map(i=>({...i,etapaStyle:sem(i.etapa)}))}));
+    V.mapUrl='mapa-sergipe.html';
+
+    // ===== ÁREAS =====
+    V.areaRows=D.areas.map(a=>({...a, critStyle:dstyle(a.criticos>=30?180:a.criticos>=10?90:0), open:()=>self.go('areas')}));
+
+    // ===== DIVERGÊNCIAS =====
+    V.divRows=D.divergencias.map(d=>({...d, prioStyle:sem(d.prio), tipoStyle:sem(d.tipo)}));
+    V.divKpis=[
+      {label:'Divergências abertas',value:D.kpis.divergencias},
+      {label:'Prioridade Alta',value:D.divergencias.filter(d=>/alta/i.test(d.prio)).length+'+'},
+      {label:'Setores divergentes',value:D.divergencias.filter(d=>/setor/i.test(d.desc)).length+'+'},
+    ];
+
+    // ===== FONTES =====
+    V.fonteRows=D.fontes.map(f=>({...f}));
+    V.fonteTotalReg=D.kpis.registrosFonte;
+
+    return V;
+  }
+
+  norm(p){ return { edoc:p.edoc, obj:p.obj, area:p.area, setor:p.setor, orgao:p.orgao, fase:p.fase, prio:p.prio||'', status:p.status||'', statusMacro:p.statusMacro||'', prox:p.prox||p.acao||'', dias:p.dias, data:p.data||'', resp:p.resp||'', valor:p.valor||'', modalidade:p.modalidade||'', prog:p.prog||'', motivo:p.motivo||'', cobrar:p.cobrar||'', alerta:p.alerta||'' }; }
+}
+</script>
+</body>
+</html>
