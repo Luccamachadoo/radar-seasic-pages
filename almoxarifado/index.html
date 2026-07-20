@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Painel público do Almoxarifado da SEASIC para consulta consolidada de pedidos, itens, fontes de recurso e divergências documentais.">
+<meta name="theme-color" content="#0b2545">
+<meta name="robots" content="index,follow">
+<title>Almoxarifado SEASIC</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Public Sans',system-ui,sans-serif;background:#eef1f5;color:#1a2432;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#c7d0dc;border-radius:6px;border:2px solid #eef1f5}
+::-webkit-scrollbar-track{background:transparent}
+a{color:#1e5aa8;text-decoration:none}
+a:hover{color:#12315c}
+table{border-collapse:collapse}
+input,select,button,textarea{font-family:inherit}
+@keyframes seaFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes seaSlide{from{transform:translateX(28px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes seaOverlay{from{opacity:0}to{opacity:1}}
+@keyframes seaBar{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;width:100%">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside style="{{ sidebarStyle }}">
+    <div style="display:flex;align-items:center;gap:11px;padding:20px 18px 18px;border-bottom:1px solid rgba(255,255,255,.09)">
+      <div style="flex:none;width:34px;height:34px;border-radius:8px;background:#2f6fbf;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;letter-spacing:.5px">AS</div>
+      <div style="{{ brandTextStyle }}">
+        <div style="font-weight:700;font-size:14px;color:#fff;line-height:1.1;white-space:nowrap">Almoxarifado</div>
+        <div style="font-weight:600;font-size:11px;color:#8fb3de;letter-spacing:1.5px">SEASIC</div>
+      </div>
+    </div>
+    <nav style="flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+      <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="8">
+        <button onClick="{{ nav.onClick }}" title="{{ nav.label }}" style="{{ nav.style }}">
+          <span style="{{ nav.dotStyle }}"></span>
+          <span style="{{ nav.labelStyle }}">{{ nav.label }}</span>
+          <sc-if value="{{ nav.showBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ nav.badgeStyle }}">{{ nav.badge }}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+    <div style="padding:10px;border-top:1px solid rgba(255,255,255,.09);display:flex;flex-direction:column;gap:2px">
+      <button onClick="{{ goDicionario }}" style="{{ footItemStyle }}"><span style="width:6px;height:6px;border-radius:1px;background:#5f7fa6;flex:none"></span><span style="{{ footLabelStyle }}">Dicionário de dados</span></button>
+      <button onClick="{{ goAjuda }}" style="{{ footItemStyle }}"><span style="width:6px;height:6px;border-radius:1px;background:#5f7fa6;flex:none"></span><span style="{{ footLabelStyle }}">Ajuda</span></button>
+      <div style="{{ updateBoxStyle }}">
+        <div style="font-size:9.5px;letter-spacing:.8px;color:#6f8cb0;text-transform:uppercase;font-weight:600">Base atualizada em</div>
+        <div style="font-size:12px;color:#cddcf0;font-weight:600;margin-top:2px">{{ atualizacao }}</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow:hidden">
+
+    <!-- Topbar -->
+    <header style="flex:none;background:#fff;border-bottom:1px solid #e2e7ee;padding:0 26px;height:64px;display:flex;align-items:center;gap:16px;z-index:20">
+      <button onClick="{{ toggleSidebar }}" title="Recolher menu" style="flex:none;width:34px;height:34px;border-radius:7px;border:1px solid #e2e7ee;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;padding:0">
+        <span style="width:15px;height:2px;background:#5a6675;border-radius:2px"></span>
+        <span style="width:15px;height:2px;background:#5a6675;border-radius:2px"></span>
+        <span style="width:15px;height:2px;background:#5a6675;border-radius:2px"></span>
+      </button>
+      <div style="flex:none">
+        <div style="font-size:11px;color:#8a94a3;font-weight:600;letter-spacing:.4px;white-space:nowrap">{{ crumb }}</div>
+        <h1 style="margin:0;font-size:19px;font-weight:700;color:#1a2432;line-height:1.15;white-space:nowrap">{{ pageTitle }}</h1>
+      </div>
+      <div style="position:relative;display:flex;align-items:center;flex:1 1 auto;min-width:0;max-width:290px;margin-left:16px">
+        <span style="position:absolute;left:11px;width:13px;height:13px;border:2px solid #9aa5b1;border-radius:50%;pointer-events:none"></span>
+        <input value="{{ globalSearch }}" onInput="{{ onGlobalSearch }}" placeholder="Buscar item, código ou produto…" style="width:100%;min-width:0;height:38px;border:1px solid #e2e7ee;border-radius:8px;padding:0 12px 0 32px;font-size:13px;background:#f7f9fc;color:#1a2432;outline:none"/>
+      </div>
+      <button onClick="{{ atualizarBase }}" title="Atualizar base" style="flex:none;height:38px;padding:0 15px;border:1px solid #d3dce7;border-radius:8px;background:#fff;color:#1e5aa8;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap"><span style="width:12px;height:12px;border:2px solid #1e5aa8;border-radius:50%;border-top-color:transparent;flex:none"></span>Atualizar base</button>
+      <button onClick="{{ goRelatorios }}" style="flex:none;height:38px;padding:0 16px;border:none;border-radius:8px;background:#12315c;color:#fff;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap">Gerar relatório</button>
+    </header>
+
+    <!-- Scroll region -->
+    <main style="flex:1;overflow-y:auto;overflow-x:hidden">
+      <div style="max-width:1320px;margin:0 auto;padding:26px 26px 60px">
+
+        <!-- ============ VISÃO GERAL ============ -->
+        <sc-if value="{{ isVisao }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:seaFade .35s ease both">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="8">
+              <div style="{{ k.cardStyle }}">
+                <div style="font-size:11px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.5px;line-height:1.3">{{ k.label }}</div>
+                <div style="{{ k.valueStyle }}">{{ k.value }}</div>
+                <div style="{{ k.subStyle }}">{{ k.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-top:16px">
+            <!-- fonte x ano grouped -->
+            <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                <h3 style="margin:0;font-size:15px;font-weight:700;color:#1a2432">Valores por fonte e exercício</h3>
+                <span style="font-size:11px;color:#8a94a3">Valores oficiais (R$)</span>
+              </div>
+              <p style="margin:0 0 20px;font-size:12px;color:#8a94a3">Comparativo 2025 × 2026 · sem dupla contagem</p>
+              <div style="display:flex;align-items:flex-end;gap:26px;height:210px;padding:0 4px">
+                <sc-for list="{{ fonteGroups }}" as="g" hint-placeholder-count="3">
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%">
+                    <div style="flex:1;display:flex;align-items:flex-end;gap:10px;width:100%;justify-content:center">
+                      <div style="{{ g.bar25Style }}" title="{{ g.t25 }}"></div>
+                      <div style="{{ g.bar26Style }}" title="{{ g.t26 }}"></div>
+                    </div>
+                    <div style="margin-top:10px;font-size:13px;font-weight:700;color:#1a2432">{{ g.fonte }}</div>
+                    <div style="font-size:11px;color:#8a94a3">{{ g.totalTxt }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:18px;margin-top:16px;padding-top:14px;border-top:1px solid #eef1f5">
+                <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#5a6675"><span style="width:12px;height:12px;border-radius:3px;background:#2f6fbf"></span>2025</span>
+                <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#5a6675"><span style="width:12px;height:12px;border-radius:3px;background:#9dc0ea"></span>2026</span>
+              </div>
+            </div>
+            <!-- categoria horizontal -->
+            <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+              <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a2432">Distribuição por categoria</h3>
+              <p style="margin:0 0 16px;font-size:12px;color:#8a94a3">Valor oficial consolidado por categoria analítica</p>
+              <div style="display:flex;flex-direction:column;gap:11px">
+                <sc-for list="{{ catBars }}" as="c" hint-placeholder-count="8">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#3a4656;font-weight:500">{{ c.cat }}</span><span style="color:#8a94a3;font-family:'IBM Plex Mono',monospace;font-size:11px">{{ c.valTxt }}</span></div>
+                    <div style="height:8px;background:#eef1f5;border-radius:5px;overflow:hidden"><div style="{{ c.barStyle }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- Situação operacional -->
+          <div style="margin-top:16px;background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div>
+                <h3 style="margin:0;font-size:15px;font-weight:700;color:#1a2432">Situação operacional</h3>
+                <p style="margin:2px 0 0;font-size:12px;color:#8a94a3">Movimentações físicas do almoxarifado · fase operacional ainda não iniciada</p>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#64748b;background:#eef1f5;border-radius:20px;padding:5px 12px">Aguardando início da operação</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+              <sc-for list="{{ opBlocks }}" as="o" hint-placeholder-count="5">
+                <div style="border:1px dashed #d3dce7;border-radius:10px;padding:16px 14px;background:#fafbfd;text-align:center">
+                  <div style="width:30px;height:30px;border-radius:8px;background:#eef1f5;margin:0 auto 10px;display:flex;align-items:center;justify-content:center"><span style="width:11px;height:11px;border:2px solid #9aa5b1;border-radius:3px"></span></div>
+                  <div style="font-size:22px;font-weight:800;color:#b4bdc9">0</div>
+                  <div style="font-size:11.5px;color:#5a6675;font-weight:600;margin-top:2px;line-height:1.25">{{ o.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Alertas e inconsistências -->
+          <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+              <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a2432">Alertas e inconsistências</h3>
+              <p style="margin:0 0 16px;font-size:12px;color:#8a94a3">Pontos de conferência identificados na consolidação documental</p>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
+                  <div onClick="{{ a.onClick }}" style="{{ a.style }}">
+                    <span style="{{ a.dotStyle }}"></span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:13px;font-weight:600;color:#1a2432">{{ a.title }}</div>
+                      <div style="font-size:12px;color:#5a6675;margin-top:1px">{{ a.desc }}</div>
+                    </div>
+                    <span style="{{ a.tagStyle }}">{{ a.tag }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+              <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a2432">Notas metodológicas</h3>
+              <p style="margin:0 0 16px;font-size:12px;color:#8a94a3">Como a Base Mestre foi consolidada</p>
+              <div style="display:flex;flex-direction:column;gap:11px">
+                <sc-for list="{{ notas }}" as="n" hint-placeholder-count="5">
+                  <div style="display:flex;gap:10px;align-items:flex-start"><span style="flex:none;width:5px;height:5px;border-radius:50%;background:#2f6fbf;margin-top:6px"></span><span style="font-size:12.5px;color:#3a4656;line-height:1.45">{{ n }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ PEDIDOS ============ -->
+        <sc-if value="{{ isPedidos }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <!-- filter bar -->
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;margin-bottom:16px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 18px">
+              <button onClick="{{ togglePFilters }}" style="display:flex;align-items:center;gap:8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:#1a2432;padding:0"><span style="width:14px;height:14px;border:2px solid #5a6675;border-radius:3px;display:inline-block"></span>Filtros</button>
+              <sc-if value="{{ pActiveTxt }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;font-weight:600;color:#1e5aa8;background:#e8f0fa;border-radius:20px;padding:4px 11px">{{ pActiveTxt }}</span></sc-if>
+              <div style="flex:1"></div>
+              <span style="font-size:12.5px;color:#8a94a3"><b style="color:#1a2432;font-weight:700">{{ pCount }}</b> de {{ pScopeCount }} {{ pScopeLabel }}</span>
+              <button onClick="{{ clearPFilters }}" style="border:1px solid #e2e7ee;background:#fff;border-radius:7px;padding:7px 12px;font-size:12.5px;color:#5a6675;cursor:pointer;font-weight:600">Limpar filtros</button>
+              <button onClick="{{ exportPedidos }}" style="border:none;background:#12315c;color:#fff;border-radius:7px;padding:7px 13px;font-size:12.5px;cursor:pointer;font-weight:600">Exportar seleção</button>
+            </div>
+            <sc-if value="{{ pFiltersOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0 18px 18px;border-top:1px solid #eef1f5;padding-top:16px">
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px">Exercício
+                <select value="{{ pf.ano }}" onChange="{{ onPAno }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;color:#1a2432;background:#fff;text-transform:none;font-weight:400;letter-spacing:0"><option value="">Todos</option><option value="2025">2025</option><option value="2026">2026</option></select></label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px">Fonte
+                <select value="{{ pf.fonte }}" onChange="{{ onPFonte }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;color:#1a2432;background:#fff;text-transform:none;font-weight:400;letter-spacing:0"><option value="">Todas</option><option value="SEASIC">SEASIC</option><option value="FEAS">FEAS</option><option value="FUNCEP">FUNCEP</option></select></label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px">Tipo documento
+                <select value="{{ pf.tipo }}" onChange="{{ onPTipo }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;color:#1a2432;background:#fff;text-transform:none;font-weight:400;letter-spacing:0"><option value="">Todos</option><option value="Controle">Controle</option><option value="Levantamento">Levantamento</option></select></label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px">Categoria
+                <select value="{{ pf.cat }}" onChange="{{ onPCat }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;color:#1a2432;background:#fff;text-transform:none;font-weight:400;letter-spacing:0"><option value="">Todas</option><sc-for list="{{ catOpts }}" as="c" hint-placeholder-count="8"><option value="{{ c }}">{{ c }}</option></sc-for></select></label>
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px">Busca
+                <input value="{{ pf.q }}" onInput="{{ onPQ }}" placeholder="produto ou código" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;color:#1a2432;text-transform:none;font-weight:400;letter-spacing:0"/></label>
+            </div>
+            </sc-if>
+          </div>
+          <!-- table -->
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;overflow:hidden">
+            <div style="overflow-x:auto;max-height:640px;overflow-y:auto">
+              <table style="width:100%;min-width:920px;font-size:12.5px">
+                <thead><tr style="position:sticky;top:0;z-index:1">
+                  <th style="{{ thL }}">Item</th><th style="{{ thL }}">Produto</th><th style="{{ thL }}">Categoria</th><th style="{{ thC }}">Fonte</th><th style="{{ thC }}">Ano</th><th style="{{ thR }}">Qtd.</th><th style="{{ thL }}">Unid.</th><th style="{{ thR }}">Vlr. unit.</th><th style="{{ thR }}">Vlr. total</th><th style="{{ thL }}">Origem</th>
+                </tr></thead>
+                <tbody>
+                  <sc-for list="{{ pedidoRows }}" as="p" hint-placeholder-count="14">
+                    <tr onClick="{{ p.onClick }}" style="{{ p.rowStyle }}">
+                      <td style="{{ tdMono }}">{{ p.item }}</td>
+                      <td style="{{ td }}"><span style="font-weight:600;color:#1a2432">{{ p.produto }}</span></td>
+                      <td style="{{ td }}"><span style="{{ p.catChip }}">{{ p.cat }}</span></td>
+                      <td style="{{ tdC }}"><span style="{{ p.fonteChip }}">{{ p.fonte }}</span></td>
+                      <td style="{{ tdC }}">{{ p.ano }}</td>
+                      <td style="{{ tdR }}">{{ p.qtd }}</td>
+                      <td style="{{ td }}">{{ p.unidade }}</td>
+                      <td style="{{ tdRmono }}">{{ p.vu }}</td>
+                      <td style="{{ tdRmono }}"><b style="color:#0b2545">{{ p.vt }}</b></td>
+                      <td style="{{ td }}"><span style="font-size:11px;color:#8a94a3">{{ p.origem }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <sc-if value="{{ pEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:50px;text-align:center;color:#8a94a3;font-size:13px">Nenhum registro corresponde aos filtros aplicados.</div>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ ITENS ============ -->
+        <sc-if value="{{ isItens }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="position:relative;display:flex;align-items:center">
+              <span style="position:absolute;left:11px;width:12px;height:12px;border:2px solid #9aa5b1;border-radius:50%"></span>
+              <input value="{{ if_.q }}" onInput="{{ onIQ }}" placeholder="Buscar item por nome ou código…" style="width:280px;height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 12px 0 32px;font-size:13px;background:#f7f9fc"/>
+            </div>
+            <select value="{{ if_.cat }}" onChange="{{ onICat }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;background:#fff"><option value="">Todas as categorias</option><sc-for list="{{ catOpts }}" as="c" hint-placeholder-count="8"><option value="{{ c }}">{{ c }}</option></sc-for></select>
+            <select value="{{ if_.fonte }}" onChange="{{ onIFonte }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;background:#fff"><option value="">Todas as fontes</option><option value="SEASIC">SEASIC</option><option value="FEAS">FEAS</option><option value="FUNCEP">FUNCEP</option></select>
+            <div style="flex:1"></div>
+            <span style="font-size:12.5px;color:#8a94a3"><b style="color:#1a2432">{{ iCount }}</b> de {{ iTotal }} itens</span>
+            <div style="display:flex;border:1px solid #d3dce7;border-radius:8px;overflow:hidden">
+              <button onClick="{{ setCards }}" style="{{ btnCards }}">Cartões</button>
+              <button onClick="{{ setTable }}" style="{{ btnTable }}">Tabela</button>
+            </div>
+          </div>
+
+          <sc-if value="{{ iCardsMode }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px">
+              <sc-for list="{{ itemCards }}" as="it" hint-placeholder-count="9">
+                <div onClick="{{ it.onClick }}" style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow .15s,border-color .15s" style-hover="border-color:#9dc0ea;box-shadow:0 6px 18px rgba(30,90,168,.1)">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a94a3">{{ it.item }}</span>
+                    <span style="{{ it.dot }}"></span>
+                  </div>
+                  <div style="font-size:14.5px;font-weight:700;color:#1a2432;margin-top:6px;line-height:1.25;min-height:36px">{{ it.produto }}</div>
+                  <div style="font-size:11.5px;color:{{ it.catCl }};font-weight:600;margin-top:3px">{{ it.cat }}</div>
+                  <div style="display:flex;gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid #eef1f5">
+                    <div><div style="font-size:10px;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px;font-weight:600">Valor hist.</div><div style="font-size:13px;font-weight:700;color:#0b2545;font-family:'IBM Plex Mono',monospace">{{ it.vt }}</div></div>
+                    <div><div style="font-size:10px;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px;font-weight:600">Unid.</div><div style="font-size:13px;font-weight:600;color:#3a4656">{{ it.unidade }}</div></div>
+                    <div><div style="font-size:10px;color:#8a94a3;text-transform:uppercase;letter-spacing:.4px;font-weight:600">Anos</div><div style="font-size:13px;font-weight:600;color:#3a4656">{{ it.anos }}</div></div>
+                  </div>
+                  <div style="margin-top:10px"><span style="font-size:11px;color:#94a3b8;background:#f4f6f9;border-radius:6px;padding:3px 9px;font-weight:600">Saldo não informado</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ iTableMode }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;overflow:hidden">
+              <div style="overflow:auto;max-height:640px">
+                <table style="width:100%;min-width:880px;font-size:12.5px">
+                  <thead><tr><th style="{{ thL }}">Código</th><th style="{{ thL }}">Produto</th><th style="{{ thL }}">Categoria</th><th style="{{ thL }}">Unid.</th><th style="{{ thL }}">Fontes</th><th style="{{ thR }}">Qtd. hist.</th><th style="{{ thR }}">Vlr. hist.</th><th style="{{ thR }}">Est. mín.</th><th style="{{ thC }}">Situação</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ itemRows }}" as="it" hint-placeholder-count="14">
+                      <tr onClick="{{ it.onClick }}" style="cursor:pointer">
+                        <td style="{{ tdMono }}">{{ it.item }}</td>
+                        <td style="{{ td }}"><b style="color:#1a2432">{{ it.produto }}</b></td>
+                        <td style="{{ td }}"><span style="color:{{ it.catCl }};font-weight:600;font-size:11.5px">{{ it.cat }}</span></td>
+                        <td style="{{ td }}">{{ it.unidade }}</td>
+                        <td style="{{ td }}">{{ it.fontes }}</td>
+                        <td style="{{ tdR }}">{{ it.qtd }}</td>
+                        <td style="{{ tdRmono }}"><b style="color:#0b2545">{{ it.vt }}</b></td>
+                        <td style="{{ tdR }}"><span style="color:#b7791f;font-weight:600">a definir</span></td>
+                        <td style="{{ tdC }}"><span style="font-size:11px;color:#94a3b8;background:#f4f6f9;border-radius:6px;padding:3px 8px;font-weight:600">não informado</span></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- ============ ENTRADAS ============ -->
+        <sc-if value="{{ isEntradas }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <sc-for list="{{ entradaStats }}" as="s" hint-placeholder-count="4">
+              <div style="flex:1;background:#fff;border:1px solid #e2e7ee;border-radius:11px;padding:14px 16px">
+                <div style="font-size:11px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">{{ s.label }}</div>
+                <div style="font-size:24px;font-weight:800;color:#b4bdc9;margin-top:3px">0</div>
+              </div>
+            </sc-for>
+            <button onClick="{{ openEntrada }}" style="flex:none;height:44px;padding:0 20px;border:none;border-radius:10px;background:#12315c;color:#fff;font-weight:700;font-size:14px;cursor:pointer;align-self:stretch;margin-top:0">+ Registrar entrada</button>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:64px 24px;text-align:center">
+            <div style="width:60px;height:60px;border-radius:16px;background:#eef1f5;margin:0 auto 20px;display:flex;align-items:center;justify-content:center"><span style="width:22px;height:22px;border:2.5px solid #9aa5b1;border-radius:5px"></span></div>
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:#1a2432">Nenhuma entrada foi registrada na Base Mestre até o momento.</h3>
+            <p style="margin:10px auto 0;font-size:13.5px;color:#8a94a3;max-width:460px;line-height:1.55">Ao registrar recebimentos, esta área exibirá as notas fiscais, fornecedores, lotes, validades e o status de conferência de cada material.</p>
+            <button onClick="{{ openEntrada }}" style="margin-top:22px;height:46px;padding:0 26px;border:none;border-radius:10px;background:#1e5aa8;color:#fff;font-weight:700;font-size:14px;cursor:pointer">Registrar primeira entrada</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ SAÍDAS ============ -->
+        <sc-if value="{{ isSaidas }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+            <span style="font-size:12.5px;color:#8a94a3;font-weight:600;margin-right:4px">Visualizar por:</span>
+            <sc-for list="{{ saidaViews }}" as="v" hint-placeholder-count="5"><span style="{{ v.style }}">{{ v.label }}</span></sc-for>
+            <div style="flex:1"></div>
+            <button onClick="{{ openSaida }}" style="height:44px;padding:0 20px;border:none;border-radius:10px;background:#12315c;color:#fff;font-weight:700;font-size:14px;cursor:pointer">+ Registrar saída</button>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:64px 24px;text-align:center">
+            <div style="width:60px;height:60px;border-radius:16px;background:#eef1f5;margin:0 auto 20px;display:flex;align-items:center;justify-content:center"><span style="width:22px;height:22px;border:2.5px solid #9aa5b1;border-radius:50%"></span></div>
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:#1a2432">Nenhuma distribuição foi registrada até o momento.</h3>
+            <p style="margin:10px auto 0;font-size:13.5px;color:#8a94a3;max-width:460px;line-height:1.55">As entregas às unidades, programas e serviços aparecerão aqui, com responsável pela retirada, finalidade e documento de saída.</p>
+            <button onClick="{{ openSaida }}" style="margin-top:22px;height:46px;padding:0 26px;border:none;border-radius:10px;background:#1e5aa8;color:#fff;font-weight:700;font-size:14px;cursor:pointer">Registrar primeira saída</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ ESTOQUE ============ -->
+        <sc-if value="{{ isEstoque }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px">
+            <sc-for list="{{ estoqueKpis }}" as="k" hint-placeholder-count="6">
+              <div style="background:#fff;border:1px solid #e2e7ee;border-radius:11px;padding:14px"><div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;line-height:1.3;min-height:26px">{{ k.label }}</div><div style="font-size:22px;font-weight:800;color:#b4bdc9;margin-top:4px">{{ k.value }}</div></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;background:#fdf7ec;border:1px solid #f0e0c0;border-radius:11px;padding:14px 18px;margin-bottom:16px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#b7791f;flex:none"></span>
+            <div style="flex:1"><b style="color:#8a5a12;font-size:13.5px">Saldo físico ainda não informado.</b> <span style="font-size:13px;color:#8a6d3b">O estoque atual será calculado automaticamente a partir das entradas e saídas registradas. Enquanto isso, ajuste o estoque inicial de cada item.</span></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+            <sc-for list="{{ estoqueActions }}" as="a" hint-placeholder-count="6"><button onClick="{{ a.onClick }}" style="height:38px;padding:0 15px;border:1px solid #d3dce7;background:#fff;border-radius:8px;font-size:12.5px;font-weight:600;color:#3a4656;cursor:pointer">{{ a.label }}</button></sc-for>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;overflow:hidden">
+            <div style="overflow:auto;max-height:560px">
+              <table style="width:100%;min-width:1000px;font-size:12.5px">
+                <thead><tr><th style="{{ thL }}">Item</th><th style="{{ thL }}">Produto</th><th style="{{ thL }}">Categoria</th><th style="{{ thL }}">Unid.</th><th style="{{ thL }}">Local.</th><th style="{{ thR }}">Est. inicial</th><th style="{{ thR }}">Entradas</th><th style="{{ thR }}">Saídas</th><th style="{{ thR }}">Est. atual</th><th style="{{ thR }}">Mínimo</th><th style="{{ thC }}">Status</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ estoqueRows }}" as="e" hint-placeholder-count="12">
+                    <tr>
+                      <td style="{{ tdMono }}">{{ e.item }}</td><td style="{{ td }}"><b style="color:#1a2432">{{ e.produto }}</b></td>
+                      <td style="{{ td }}"><span style="color:{{ e.catCl }};font-weight:600;font-size:11.5px">{{ e.cat }}</span></td>
+                      <td style="{{ td }}">{{ e.unidade }}</td><td style="{{ td }}"><span style="color:#b4bdc9">—</span></td>
+                      <td style="{{ tdR }}"><span style="color:#b4bdc9">—</span></td><td style="{{ tdR }}"><span style="color:#b4bdc9">0</span></td>
+                      <td style="{{ tdR }}"><span style="color:#b4bdc9">0</span></td><td style="{{ tdR }}"><span style="color:#b4bdc9">—</span></td>
+                      <td style="{{ tdR }}"><span style="color:#b7791f;font-weight:600">a definir</span></td>
+                      <td style="{{ tdC }}"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#64748b;background:#f4f6f9;border-radius:20px;padding:4px 10px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#94a3b8"></span>Sem saldo informado</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ DIVERGÊNCIAS ============ -->
+        <sc-if value="{{ isDivergencias }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both;display:flex;flex-direction:column;gap:16px">
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px"><span style="font-size:11px;font-weight:800;color:#fff;background:#1e5aa8;border-radius:6px;padding:3px 9px">2025</span><h3 style="margin:0;font-size:15px;font-weight:700;color:#1a2432">Controle × Levantamento</h3></div>
+            <p style="margin:0 0 16px;font-size:12.5px;color:#8a94a3">Os levantamentos de 2025 foram adotados como fonte oficial por serem mais completos. Não somar com os controles — geraria dupla contagem.</p>
+            <table style="width:100%;font-size:13px"><thead><tr><th style="{{ thL }}">Fonte</th><th style="{{ thR }}">Linhas controle</th><th style="{{ thR }}">Linhas levant.</th><th style="{{ thR }}">Valor controle</th><th style="{{ thR }}">Valor levant.</th><th style="{{ thR }}">Diferença</th><th style="{{ thL }}">Diagnóstico</th></tr></thead>
+              <tbody><sc-for list="{{ div2025Rows }}" as="r" hint-placeholder-count="3"><tr style="cursor:pointer" onClick="{{ r.onClick }}"><td style="{{ td }}"><b>{{ r.fonte }}</b></td><td style="{{ tdR }}">{{ r.lc }}</td><td style="{{ tdR }}">{{ r.ll }}</td><td style="{{ tdRmono }}">{{ r.vc }}</td><td style="{{ tdRmono }}">{{ r.vl }}</td><td style="{{ tdRmono }}"><b style="color:#b7791f">+{{ r.dif }}</b></td><td style="{{ td }}"><span style="font-size:12px;color:#8a94a3">Itens do levantamento ausentes no controle</span></td></tr></sc-for></tbody></table>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px"><span style="font-size:11px;font-weight:800;color:#fff;background:#1e5aa8;border-radius:6px;padding:3px 9px">2026</span><h3 style="margin:0;font-size:15px;font-weight:700;color:#1a2432">Total calculado × Total impresso</h3></div>
+            <p style="margin:0 0 16px;font-size:12.5px;color:#8a94a3">Comparação entre a soma das linhas e o total impresso em cada documento de controle de 2026.</p>
+            <table style="width:100%;font-size:13px"><thead><tr><th style="{{ thL }}">Fonte</th><th style="{{ thR }}">Qtd. calc.</th><th style="{{ thR }}">Qtd. impr.</th><th style="{{ thR }}">Dif. qtd.</th><th style="{{ thR }}">Vlr. calc.</th><th style="{{ thR }}">Vlr. impr.</th><th style="{{ thR }}">Dif. valor</th><th style="{{ thC }}">Status</th></tr></thead>
+              <tbody><sc-for list="{{ div2026Rows }}" as="r" hint-placeholder-count="3"><tr><td style="{{ td }}"><b>{{ r.fonte }}</b></td><td style="{{ tdR }}">{{ r.qc }}</td><td style="{{ tdR }}">{{ r.qi }}</td><td style="{{ tdR }}">{{ r.dq }}</td><td style="{{ tdRmono }}">{{ r.vc }}</td><td style="{{ tdRmono }}">{{ r.vi }}</td><td style="{{ tdRmono }}">{{ r.dv }}</td><td style="{{ tdC }}"><span style="{{ r.tag }}">{{ r.status }}</span></td></tr></sc-for></tbody></table>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a2432">Itens do levantamento de 2025 ausentes nos controles</h3>
+            <p style="margin:0 0 16px;font-size:12.5px;color:#8a94a3"><b style="color:#1a2432">14 itens</b> presentes nos levantamentos mas fora das linhas dos respectivos controles — todos preservados na Base Oficial.</p>
+            <div style="overflow:auto"><table style="width:100%;min-width:820px;font-size:12.5px"><thead><tr><th style="{{ thC }}">Fonte</th><th style="{{ thL }}">Código</th><th style="{{ thL }}">Produto</th><th style="{{ thR }}">Qtd.</th><th style="{{ thR }}">Valor</th><th style="{{ thL }}">Arquivo</th><th style="{{ thC }}">Págs.</th></tr></thead>
+              <tbody><sc-for list="{{ ausentesRows }}" as="a" hint-placeholder-count="14"><tr><td style="{{ tdC }}"><span style="{{ a.fonteChip }}">{{ a.fonte }}</span></td><td style="{{ tdMono }}">{{ a.item }}</td><td style="{{ td }}"><b style="color:#1a2432">{{ a.produto }}</b></td><td style="{{ tdR }}">{{ a.qtd }}</td><td style="{{ tdRmono }}">{{ a.vt }}</td><td style="{{ td }}"><span style="font-size:11px;color:#8a94a3">{{ a.arquivo }}</span></td><td style="{{ tdC }}"><span style="font-size:11px;color:#8a94a3">{{ a.paginas }}</span></td></tr></sc-for></tbody></table></div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ RELATÓRIOS ============ -->
+        <sc-if value="{{ isRelatorios }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both">
+          <p style="margin:0 0 16px;font-size:13px;color:#8a94a3">Selecione um relatório para visualizar, imprimir ou exportar. Os relatórios mantêm a identidade da SEASIC e são adequados a reuniões gerenciais.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+            <sc-for list="{{ reportCards }}" as="r" hint-placeholder-count="12">
+              <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px">
+                <div style="width:32px;height:32px;border-radius:8px;background:#e8f0fa;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:14px;border:2px solid #1e5aa8;border-radius:2px"></span></div>
+                <div style="font-size:14px;font-weight:700;color:#1a2432;line-height:1.25">{{ r.title }}</div>
+                <div style="font-size:12px;color:#8a94a3;line-height:1.4;flex:1">{{ r.desc }}</div>
+                <div style="display:flex;gap:8px;margin-top:4px"><button onClick="{{ r.onView }}" style="flex:1;height:34px;border:none;background:#12315c;color:#fff;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">Visualizar</button><button onClick="{{ r.onXls }}" style="height:34px;padding:0 12px;border:1px solid #d3dce7;background:#fff;color:#5a6675;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">Excel</button></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ============ DICIONÁRIO ============ -->
+        <sc-if value="{{ isDicionario }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both;background:#fff;border:1px solid #e2e7ee;border-radius:12px;overflow:hidden">
+          <div style="padding:18px 20px;border-bottom:1px solid #eef1f5"><h3 style="margin:0;font-size:15px;font-weight:700;color:#1a2432">Dicionário de dados e regras de consolidação</h3><p style="margin:4px 0 0;font-size:12.5px;color:#8a94a3">Origem dos campos e critérios metodológicos adotados na Base Mestre.</p></div>
+          <div style="overflow:auto"><table style="width:100%;min-width:840px;font-size:12.5px"><thead><tr><th style="{{ thL }}">Aba</th><th style="{{ thL }}">Campo / seção</th><th style="{{ thL }}">Descrição</th><th style="{{ thL }}">Origem ou regra</th><th style="{{ thL }}">Observação</th></tr></thead>
+            <tbody><sc-for list="{{ dicRows }}" as="d" hint-placeholder-count="18"><tr><td style="{{ td }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#1e5aa8">{{ d.aba }}</span></td><td style="{{ td }}"><b style="color:#1a2432">{{ d.campo }}</b></td><td style="{{ td }}">{{ d.desc }}</td><td style="{{ td }}"><span style="color:#5a6675">{{ d.origem }}</span></td><td style="{{ td }}"><span style="font-size:11.5px;color:#8a94a3;font-style:italic">{{ d.obs }}</span></td></tr></sc-for></tbody></table></div>
+        </div>
+        </sc-if>
+
+        <!-- ============ AJUDA ============ -->
+        <sc-if value="{{ isAjuda }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:seaFade .3s ease both;max-width:760px">
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:24px;margin-bottom:16px">
+            <h3 style="margin:0 0 6px;font-size:16px;font-weight:700;color:#1a2432">Sobre o painel</h3>
+            <p style="margin:0;font-size:13.5px;color:#3a4656;line-height:1.6">Este painel consolida os pedidos, itens e movimentações do Almoxarifado da SEASIC a partir de nove documentos oficiais (SEASIC, FEAS e FUNCEP · exercícios 2025 e 2026). Os dados históricos são consolidados e rastreáveis até o arquivo e a página de origem. As áreas de Entradas, Saídas e Estoque estão preparadas para a fase operacional.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <sc-for list="{{ helpCards }}" as="h" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e2e7ee;border-radius:12px;padding:18px"><div style="font-size:14px;font-weight:700;color:#1a2432">{{ h.title }}</div><div style="font-size:12.5px;color:#5a6675;line-height:1.5;margin-top:6px">{{ h.desc }}</div></div></sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- other views appended below -->
+        <div id="views-anchor"></div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== PEDIDO DETAIL DRAWER ===== -->
+  <sc-if value="{{ selPedido }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePedido }}" style="position:fixed;inset:0;background:rgba(11,37,69,.4);z-index:120;animation:seaOverlay .2s ease both"></div>
+    <div style="position:fixed;top:0;right:0;bottom:0;width:520px;max-width:92vw;background:#f7f9fc;z-index:121;box-shadow:-16px 0 40px rgba(11,37,69,.22);display:flex;flex-direction:column;animation:seaSlide .28s cubic-bezier(.2,.7,.3,1) both">
+      <div style="flex:none;background:#0b2545;color:#fff;padding:20px 24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+          <div style="min-width:0">
+            <div style="font-size:11px;letter-spacing:.8px;color:#8fb3de;font-weight:600;text-transform:uppercase">{{ sp.id }} · {{ sp.item }}</div>
+            <h2 style="margin:5px 0 0;font-size:20px;font-weight:700;line-height:1.2">{{ sp.produto }}</h2>
+          </div>
+          <button onClick="{{ closePedido }}" style="flex:none;width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <span style="font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);border-radius:6px;padding:4px 10px">{{ sp.fonte }}</span>
+          <span style="font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);border-radius:6px;padding:4px 10px">{{ sp.ano }} · {{ sp.tipo }}</span>
+          <span style="font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);border-radius:6px;padding:4px 10px">{{ sp.cat }}</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:22px 24px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <sc-for list="{{ spFields }}" as="f" hint-placeholder-count="8">
+            <div style="{{ f.wrap }}"><div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">{{ f.label }}</div><div style="{{ f.valStyle }}">{{ f.value }}</div></div>
+          </sc-for>
+        </div>
+        <div style="margin-top:18px;background:#fff;border:1px solid #e2e7ee;border-radius:10px;padding:16px">
+          <div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Descrição completa</div>
+          <div style="font-size:13px;color:#3a4656;line-height:1.55">{{ sp.desc }}</div>
+        </div>
+        <div style="margin-top:14px;background:#fff;border:1px solid #e2e7ee;border-radius:10px;padding:16px">
+          <div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Rastreabilidade</div>
+          <div style="font-size:13px;color:#3a4656;line-height:1.6"><b>Arquivo:</b> {{ sp.arquivo }}<br><b>Página:</b> {{ sp.pagina }}<br><b>Chave do item:</b> <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">{{ sp.chave }}</span></div>
+          <div style="margin-top:8px;font-size:12px;color:#8a94a3;font-style:italic">Registro preservado na Base Oficial · rastreável até o documento de origem.</div>
+        </div>
+      </div>
+      <div style="flex:none;padding:16px 24px;border-top:1px solid #e2e7ee;background:#fff;display:flex;gap:10px">
+        <button onClick="{{ verNoDoc }}" style="flex:1;height:42px;border:1px solid #d3dce7;background:#fff;border-radius:9px;font-size:13px;font-weight:600;color:#1e5aa8;cursor:pointer">Ver no documento de origem</button>
+        <button onClick="{{ abrirFichaItem }}" style="flex:1;height:42px;border:none;background:#12315c;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer">Abrir ficha do item</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== ITEM FICHA DRAWER ===== -->
+  <sc-if value="{{ selItem }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeItem }}" style="position:fixed;inset:0;background:rgba(11,37,69,.4);z-index:120;animation:seaOverlay .2s ease both"></div>
+    <div style="position:fixed;top:0;right:0;bottom:0;width:560px;max-width:94vw;background:#f7f9fc;z-index:121;box-shadow:-16px 0 40px rgba(11,37,69,.22);display:flex;flex-direction:column;animation:seaSlide .28s cubic-bezier(.2,.7,.3,1) both">
+      <div style="flex:none;background:#0b2545;color:#fff;padding:20px 24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+          <div style="min-width:0">
+            <div style="font-size:11px;letter-spacing:.8px;color:#8fb3de;font-weight:600;font-family:'IBM Plex Mono',monospace">{{ si.item }}</div>
+            <h2 style="margin:5px 0 0;font-size:21px;font-weight:700;line-height:1.2">{{ si.produto }}</h2>
+            <div style="font-size:12.5px;color:#c1d5ee;margin-top:4px">{{ si.cat }} · {{ si.unidade }}</div>
+          </div>
+          <button onClick="{{ closeItem }}" style="flex:none;width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:18px;cursor:pointer">×</button>
+        </div>
+      </div>
+      <div style="flex:none;display:flex;gap:2px;padding:0 16px;background:#fff;border-bottom:1px solid #e2e7ee;overflow-x:auto">
+        <sc-for list="{{ itemTabs }}" as="tb" hint-placeholder-count="4">
+          <button onClick="{{ tb.onClick }}" style="{{ tb.style }}">{{ tb.label }}</button>
+        </sc-for>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:22px 24px">
+        <!-- Identificação + Histórico -->
+        <sc-if value="{{ itTabIdent }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:11px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Identificação</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <sc-for list="{{ identFields }}" as="f" hint-placeholder-count="6"><div style="background:#fff;border:1px solid #e2e7ee;border-radius:9px;padding:11px 13px"><div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">{{ f.label }}</div><div style="{{ f.vs }}">{{ f.value }}</div></div></sc-for>
+          </div>
+          <div style="margin-top:12px;background:#fff;border:1px solid #e2e7ee;border-radius:10px;padding:15px"><div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Descrição de referência</div><div style="font-size:12.5px;color:#3a4656;line-height:1.5">{{ si.desc }}</div></div>
+          <div style="font-size:11px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.6px;margin:20px 0 10px">Histórico consolidado</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <sc-for list="{{ histCards }}" as="h" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e2e7ee;border-radius:9px;padding:13px"><div style="font-size:10.5px;color:#8a94a3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">{{ h.label }}</div><div style="{{ h.vs }}">{{ h.value }}</div></div></sc-for>
+          </div>
+        </sc-if>
+        <!-- Movimentações (empty) -->
+        <sc-if value="{{ itTabMov }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:44px 20px;text-align:center;border:1px dashed #d3dce7;border-radius:12px;background:#fff">
+            <div style="width:46px;height:46px;border-radius:12px;background:#eef1f5;margin:0 auto 14px;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;border:2px solid #9aa5b1;border-radius:4px"></span></div>
+            <div style="font-size:15px;font-weight:700;color:#1a2432">{{ movTitle }}</div>
+            <div style="font-size:13px;color:#8a94a3;margin-top:6px;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.5">{{ movDesc }}</div>
+          </div>
+        </sc-if>
+        <!-- Configurações -->
+        <sc-if value="{{ itTabConfig }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">Parâmetros do item (edição futura)</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="background:#fff;border:1px solid #e2e7ee;border-radius:9px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:12px"><span><span style="font-size:13px;font-weight:600;color:#1a2432">Estoque mínimo</span><br><span style="font-size:11.5px;color:#8a94a3">Parâmetro de reposição a definir pelo Almoxarifado</span></span><input placeholder="0" style="width:80px;height:36px;border:1px solid #d3dce7;border-radius:7px;text-align:right;padding:0 10px;font-size:13px;background:#fdf7ec"/></label>
+            <label style="background:#fff;border:1px solid #e2e7ee;border-radius:9px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:12px"><span><span style="font-size:13px;font-weight:600;color:#1a2432">Localização física</span><br><span style="font-size:11.5px;color:#8a94a3">Prateleira / setor de armazenamento</span></span><input placeholder="Não definido" style="width:150px;height:36px;border:1px solid #d3dce7;border-radius:7px;padding:0 10px;font-size:13px"/></label>
+            <label style="background:#fff;border:1px solid #e2e7ee;border-radius:9px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#1a2432">Controlar validade</span><span style="width:44px;height:24px;border-radius:20px;background:#dbe2ea;position:relative;flex:none"><span style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></span></label>
+            <button onClick="{{ salvarConfig }}" style="align-self:flex-start;height:40px;padding:0 18px;border:none;background:#12315c;color:#fff;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer">Salvar parâmetros</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== MODAL ENTRADA ===== -->
+  <sc-if value="{{ modalEntrada }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;background:rgba(11,37,69,.45);z-index:130;animation:seaOverlay .2s ease both;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:720px;max-width:100%;max-height:88vh;background:#f7f9fc;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;animation:seaFade .25s ease both">
+        <div style="background:#0b2545;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:18px;font-weight:700">Registrar entrada</h2><button onClick="{{ closeModals }}" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:18px;cursor:pointer">×</button></div>
+        <div style="flex:1;overflow-y:auto;padding:22px 24px">
+          <div style="font-size:11px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Dados da nota fiscal</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <sc-for list="{{ entradaHeadFields }}" as="f" hint-placeholder-count="6"><label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:600;color:#5a6675">{{ f.label }}<input placeholder="{{ f.ph }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;background:#fff;font-weight:400"/></label></sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px"><div style="font-size:11px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.5px">Itens recebidos</div><button onClick="{{ addEntradaItem }}" style="height:32px;padding:0 12px;border:1px solid #1e5aa8;background:#e8f0fa;color:#1e5aa8;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">+ Adicionar item</button></div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ entradaItemRows }}" as="row" hint-placeholder-count="1">
+              <div style="background:#fff;border:1px solid #e2e7ee;border-radius:10px;padding:12px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#5a6675">Item / produto<input placeholder="buscar item…" style="height:36px;border:1px solid #d3dce7;border-radius:7px;padding:0 9px;font-size:12.5px;font-weight:400"/></label>
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#5a6675">Qtd. recebida<input placeholder="0" style="height:36px;border:1px solid #d3dce7;border-radius:7px;padding:0 9px;font-size:12.5px;text-align:right;font-weight:400"/></label>
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#5a6675">Lote<input placeholder="—" style="height:36px;border:1px solid #d3dce7;border-radius:7px;padding:0 9px;font-size:12.5px;font-weight:400"/></label>
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#5a6675">Validade<input placeholder="dd/mm/aaaa" style="height:36px;border:1px solid #d3dce7;border-radius:7px;padding:0 9px;font-size:12.5px;font-weight:400"/></label>
+                <button onClick="{{ row.remove }}" style="height:36px;width:36px;border:1px solid #f0d0d0;background:#fdf1f1;color:#c53030;border-radius:7px;font-size:16px;cursor:pointer">×</button>
+              </div>
+            </sc-for>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:600;color:#5a6675;margin-top:14px">Status de conferência<select style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;background:#fff;max-width:240px;font-weight:400"><option>Pendente</option><option>Conferido</option><option>Com divergência</option><option>Recebimento parcial</option></select></label>
+        </div>
+        <div style="flex:none;padding:16px 24px;border-top:1px solid #e2e7ee;background:#fff;display:flex;justify-content:flex-end;gap:10px"><button onClick="{{ closeModals }}" style="height:42px;padding:0 20px;border:1px solid #d3dce7;background:#fff;color:#5a6675;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer">Cancelar</button><button onClick="{{ salvarEntrada }}" style="height:42px;padding:0 22px;border:none;background:#12315c;color:#fff;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer">Salvar entrada</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== MODAL SAÍDA ===== -->
+  <sc-if value="{{ modalSaida }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;background:rgba(11,37,69,.45);z-index:130;animation:seaOverlay .2s ease both;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:640px;max-width:100%;max-height:88vh;background:#f7f9fc;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;animation:seaFade .25s ease both">
+        <div style="background:#0b2545;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:18px;font-weight:700">Registrar saída / distribuição</h2><button onClick="{{ closeModals }}" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:18px;cursor:pointer">×</button></div>
+        <div style="flex:1;overflow-y:auto;padding:22px 24px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+            <sc-for list="{{ saidaFields }}" as="f" hint-placeholder-count="6"><label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:600;color:#5a6675">{{ f.label }}<input placeholder="{{ f.ph }}" style="height:38px;border:1px solid #d3dce7;border-radius:8px;padding:0 10px;font-size:13px;background:#fff;font-weight:400"/></label></sc-for>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:600;color:#5a6675;margin-top:12px">Finalidade / observações<textarea placeholder="Descreva a finalidade da distribuição…" style="min-height:70px;border:1px solid #d3dce7;border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;resize:vertical;font-weight:400"></textarea></label>
+        </div>
+        <div style="flex:none;padding:16px 24px;border-top:1px solid #e2e7ee;background:#fff;display:flex;justify-content:flex-end;gap:10px"><button onClick="{{ closeModals }}" style="height:42px;padding:0 20px;border:1px solid #d3dce7;background:#fff;color:#5a6675;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer">Cancelar</button><button onClick="{{ salvarSaida }}" style="height:42px;padding:0 22px;border:none;background:#12315c;color:#fff;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer">Registrar saída</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== MODAL RELATÓRIO ===== -->
+  <sc-if value="{{ reportModal }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModals }}" style="position:fixed;inset:0;background:rgba(11,37,69,.45);z-index:130;animation:seaOverlay .2s ease both;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:680px;max-width:100%;max-height:88vh;background:#fff;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;animation:seaFade .25s ease both">
+        <div style="background:#0b2545;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:11px;color:#8fb3de;font-weight:600;letter-spacing:.6px;text-transform:uppercase">Pré-visualização · SEASIC</div><h2 style="margin:4px 0 0;font-size:18px;font-weight:700">{{ reportModal }}</h2></div><button onClick="{{ closeModals }}" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:18px;cursor:pointer">×</button></div>
+        <div style="flex:1;overflow-y:auto;padding:24px;background:#eef1f5">
+          <div style="background:#fff;border:1px solid #e2e7ee;border-radius:8px;padding:28px;box-shadow:0 2px 10px rgba(11,37,69,.06)">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0b2545;padding-bottom:12px;margin-bottom:16px"><div><div style="font-size:15px;font-weight:800;color:#0b2545">Almoxarifado SEASIC</div><div style="font-size:11px;color:#8a94a3">{{ reportModal }}</div></div><div style="font-size:11px;color:#8a94a3;text-align:right">Emitido em {{ repDate }}<br>Base Oficial · {{ pTotal }} registros</div></div>
+            <div style="height:12px;background:#f4f6f9;border-radius:4px;margin-bottom:9px;width:90%"></div>
+            <div style="height:12px;background:#f4f6f9;border-radius:4px;margin-bottom:9px;width:96%"></div>
+            <div style="height:12px;background:#f4f6f9;border-radius:4px;margin-bottom:20px;width:82%"></div>
+            <div style="display:flex;gap:14px;margin-bottom:16px"><div style="flex:1;background:#f7f9fc;border:1px solid #e2e7ee;border-radius:8px;padding:14px"><div style="font-size:10px;color:#8a94a3;text-transform:uppercase;font-weight:600">Valor oficial</div><div style="font-size:18px;font-weight:800;color:#0b2545;font-family:'IBM Plex Mono',monospace">{{ repValor }}</div></div><div style="flex:1;background:#f7f9fc;border:1px solid #e2e7ee;border-radius:8px;padding:14px"><div style="font-size:10px;color:#8a94a3;text-transform:uppercase;font-weight:600">Registros</div><div style="font-size:18px;font-weight:800;color:#0b2545">{{ pTotal }}</div></div></div>
+            <div style="height:110px;background:#f4f6f9;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#b4bdc9;font-size:12px">Gráfico e tabela do relatório</div>
+          </div>
+        </div>
+        <div style="flex:none;padding:16px 24px;border-top:1px solid #e2e7ee;display:flex;justify-content:flex-end;gap:10px"><button onClick="{{ printReport }}" style="height:42px;padding:0 18px;border:1px solid #d3dce7;background:#fff;color:#5a6675;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer">Imprimir</button><button onClick="{{ pdfReport }}" style="height:42px;padding:0 18px;border:1px solid #d3dce7;background:#fff;color:#c53030;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer">Exportar PDF</button><button onClick="{{ xlsReport }}" style="height:42px;padding:0 18px;border:none;background:#1f7a4d;color:#fff;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer">Exportar Excel</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- toast -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#12315c;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 12px 32px rgba(11,37,69,.32);z-index:200;animation:seaFade .25s ease both">{{ toast }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:880}}">
+class Component extends DCLogic {
+  state = {
+    data: null,
+    view: 'visao',
+    collapsed: false,
+    globalSearch: '',
+    toast: '',
+    // pedidos
+    pf: { ano:'', fonte:'', tipo:'Controle', cat:'', q:'' },
+    pFiltersOpen: true,
+    selPedido: null,
+    // itens
+    itemMode: 'cards',
+    if_: { cat:'', fonte:'', q:'' },
+    selItem: null, itemTab: 'pedidos',
+    // modais
+    modalEntrada: false, modalSaida: false, reportModal: null,
+    entradaItems: [{}],
+    // divergencias
+    selDiv: null,
+    // estoque
+    estoqueInit: false,
+  };
+
+  componentDidMount() {
+    import('./seasic-data.js').then(m => this.setState({ data: m.DATA }));
+  }
+
+  // ---------- formatters ----------
+  brl(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  brlShort(n){ n=Number(n)||0; if(n>=1000000) return 'R$ '+(n/1000000).toLocaleString('pt-BR',{maximumFractionDigits:2})+' mi'; if(n>=1000) return 'R$ '+(n/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mil'; return 'R$ '+n.toLocaleString('pt-BR',{maximumFractionDigits:0}); }
+  int(n){ return (Number(n)||0).toLocaleString('pt-BR'); }
+  numf(n){ return (Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:2}); }
+
+  toast(msg){ this.setState({toast:msg}); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:''}),2600); }
+  setView(v){ this.setState({view:v, selPedido:null, selItem:null, selDiv:null}); }
+
+  // ---------- nav ----------
+  navSpec(d){ return [
+    {key:'visao',label:'Visão Geral'},
+    {key:'pedidos',label:'Pedidos',badge:d?this.int(d.meta.registrosOficiais):''},
+    {key:'itens',label:'Itens',badge:d?this.int(d.meta.itensCadastrados):''},
+    {key:'entradas',label:'Entradas'},
+    {key:'saidas',label:'Saídas'},
+    {key:'estoque',label:'Estoque'},
+    {key:'divergencias',label:'Divergências',badge:'!'},
+    {key:'relatorios',label:'Relatórios'},
+  ]; }
+
+  // ---------- pedidos filtering ----------
+  filteredPedidos(){
+    const d=this.state.data; if(!d) return [];
+    const f=this.state.pf; const g=(this.state.globalSearch||'').toLowerCase();
+    return d.pedidos.filter(p=>{
+      if(f.ano && p.ano!==f.ano) return false;
+      if(f.fonte && p.fonte!==f.fonte) return false;
+      if(f.tipo && p.tipo!==f.tipo) return false;
+      if(f.cat && p.cat!==f.cat) return false;
+      const q=(f.q||'').toLowerCase();
+      if(q && !(p.produto.toLowerCase().includes(q)||p.item.toLowerCase().includes(q)||(p.desc||'').toLowerCase().includes(q))) return false;
+      if(g && !(p.produto.toLowerCase().includes(g)||p.item.toLowerCase().includes(g))) return false;
+      return true;
+    });
+  }
+  filteredItens(){
+    const d=this.state.data; if(!d) return [];
+    const f=this.state.if_; const g=(this.state.globalSearch||'').toLowerCase();
+    return d.itens.filter(it=>{
+      if(f.cat && it.cat!==f.cat) return false;
+      if(f.fonte && !(it.fontes||'').includes(f.fonte)) return false;
+      const q=(f.q||'').toLowerCase();
+      if(q && !(it.produto.toLowerCase().includes(q)||it.item.toLowerCase().includes(q))) return false;
+      if(g && !(it.produto.toLowerCase().includes(g)||it.item.toLowerCase().includes(g))) return false;
+      return true;
+    });
+  }
+
+  catColor(cat){
+    const map={'Gêneros Alimentícios':'#2f6fbf','Limpeza e Conservação':'#3a9d8c','Material Pedagógico e Artesanato':'#b7791f','Cama, Banho e Vestuário':'#8256b5','Serviços e Utilidades':'#c05f8a','Higiene Pessoal e Assistencial':'#4a86c9','Expediente e Escritório':'#6b7a8f','Copa, Cozinha e Descartáveis':'#c98a2f','Alimentação Especial':'#3a9d8c','Outros':'#9aa5b1','Equipamentos e Bens Duráveis':'#6b7a8f'};
+    return map[cat]||'#6b7a8f';
+  }
+
+  renderVals(){
+    const d=this.state.data;
+    const R=React.createElement;
+    const collapsed=this.state.collapsed;
+    const view=this.state.view;
+    const titles={visao:['Painel','Visão Geral'],pedidos:['Consulta','Pedidos'],itens:['Catálogo','Itens'],entradas:['Movimentações','Entradas'],saidas:['Movimentações','Saídas e Distribuições'],estoque:['Controle','Estoque Atual'],divergencias:['Auditoria','Divergências e Conferências'],relatorios:['Saída','Relatórios'],dicionario:['Apoio','Dicionário de Dados'],ajuda:['Apoio','Ajuda']};
+    const t=titles[view]||titles.visao;
+
+    // sidebar
+    const navItems=this.navSpec(d).map(n=>{
+      const active=view===n.key;
+      const isAlert=n.badge==='!';
+      return {
+        label:n.label,
+        onClick:()=>this.setView(n.key),
+        showBadge:!!n.badge,
+        badge:n.badge==='!'?'5':n.badge,
+        style:{display:'flex',alignItems:'center',gap:'11px',width:'100%',padding:collapsed?'10px 0':'9px 12px',justifyContent:collapsed?'center':'flex-start',border:'none',borderRadius:'8px',cursor:'pointer',background:active?'#1e5aa8':'transparent',color:active?'#fff':'#b8c8dd',fontSize:'13.5px',fontWeight:active?'700':'500',textAlign:'left',transition:'background .15s'},
+        dotStyle:{flex:'none',width:'7px',height:'7px',borderRadius:'2px',background:active?'#fff':(isAlert?'#e6a23c':'#4d6a95')},
+        labelStyle:{whiteSpace:'nowrap',overflow:'hidden',display:collapsed?'none':'block',flex:1},
+        badgeStyle:{display:collapsed?'none':'inline-block',fontSize:'10px',fontWeight:'700',padding:'2px 7px',borderRadius:'10px',background:isAlert?'#e6a23c':(active?'rgba(255,255,255,.22)':'#20395f'),color:isAlert?'#3a2a00':(active?'#fff':'#9db4d4')},
+      };
+    });
+    // fix dot color
+    navItems.forEach((n,i)=>{ const spec=this.navSpec(d)[i]; const active=view===spec.key; n.dotStyle.background=active?'#fff':(spec.badge==='!'?'#e6a23c':'#4d6a95'); });
+
+    const vals={
+      atualizacao: d?d.meta.atualizacao:'—',
+      sidebarStyle:{flex:'none',width:collapsed?'68px':'236px',background:'#0b2545',display:'flex',flexDirection:'column',height:'100vh',position:'sticky',top:0,transition:'width .2s ease',overflow:'hidden'},
+      brandTextStyle:{display:collapsed?'none':'block'},
+      footItemStyle:{display:'flex',alignItems:'center',gap:'10px',width:'100%',padding:collapsed?'9px 0':'8px 12px',justifyContent:collapsed?'center':'flex-start',border:'none',background:'transparent',color:'#8fa6c4',fontSize:'12.5px',cursor:'pointer',borderRadius:'7px'},
+      footLabelStyle:{display:collapsed?'none':'inline',whiteSpace:'nowrap'},
+      updateBoxStyle:{display:collapsed?'none':'block',margin:'8px 4px 4px',padding:'10px 12px',background:'rgba(255,255,255,.05)',borderRadius:'8px'},
+      navItems,
+      toggleSidebar:()=>this.setState({collapsed:!collapsed}),
+      goDicionario:()=>this.setView('dicionario'),
+      goAjuda:()=>this.setView('ajuda'),
+      goRelatorios:()=>this.setView('relatorios'),
+      atualizarBase:()=>this.toast('Base sincronizada com os documentos de origem ('+(d?d.meta.atualizacao:'—')+').'),
+      crumb:t[0], pageTitle:t[1],
+      globalSearch:this.state.globalSearch,
+      onGlobalSearch:e=>this.setState({globalSearch:e.target.value}),
+      toast:this.state.toast,
+      isVisao:view==='visao', isPedidos:view==='pedidos', isItens:view==='itens',
+      isEntradas:view==='entradas', isSaidas:view==='saidas', isEstoque:view==='estoque',
+      isDivergencias:view==='divergencias', isRelatorios:view==='relatorios',
+      isDicionario:view==='dicionario', isAjuda:view==='ajuda',
+    };
+
+    // ===== VISÃO GERAL =====
+    const kpiCard=(empty)=>({padding:'16px 16px 14px',background:'#fff',border:'1px solid #e2e7ee',borderRadius:'12px',display:'flex',flexDirection:'column',gap:'6px',minHeight:'96px',opacity:empty?.92:1});
+    vals.kpis=[
+      {label:'Valor oficial consolidado',value:d?this.brl(d.meta.valorOficial):'—',sub:'Exercícios 2025 e 2026'},
+      {label:'Registros oficiais',value:d?this.int(d.meta.registrosOficiais):'—',sub:'sem dupla contagem'},
+      {label:'Itens cadastrados',value:d?this.int(d.meta.itensCadastrados):'—',sub:'combinações código+unidade'},
+      {label:'Fontes de recurso',value:'3',sub:'SEASIC · FEAS · FUNCEP'},
+      {label:'Entradas registradas',value:'0',sub:'Ainda não registrado',empty:true},
+      {label:'Saídas registradas',value:'0',sub:'Ainda não registrado',empty:true},
+      {label:'Itens abaixo do mínimo',value:'—',sub:'Saldo não informado',empty:true},
+      {label:'Validade próxima',value:'—',sub:'Saldo não informado',empty:true},
+    ].map(k=>({...k,cardStyle:kpiCard(k.empty),valueStyle:{fontSize:k.empty?'26px':'23px',fontWeight:'800',color:k.empty?'#b4bdc9':'#0b2545',lineHeight:1.05,fontFamily:k.value&&k.value.startsWith('R$')?"'IBM Plex Mono',monospace":'inherit',letterSpacing:'-.5px'},subStyle:{fontSize:'11.5px',color:k.empty?'#a0aab8':'#8a94a3',fontWeight:k.empty?600:400}}));
+
+    if(d){
+      const maxFonte=Math.max(...d.fonteAno.map(f=>Math.max(f.y2025,f.y2026)));
+      vals.fonteGroups=d.fonteAno.map(f=>({
+        fonte:f.fonte, totalTxt:this.brlShort(f.total), t25:'2025: '+this.brl(f.y2025), t26:'2026: '+this.brl(f.y2026),
+        bar25Style:{width:'38px',height:(f.y2025/maxFonte*100)+'%',background:'#2f6fbf',borderRadius:'5px 5px 0 0',transformOrigin:'bottom',animation:'seaBar .6s ease both',minHeight:'3px'},
+        bar26Style:{width:'38px',height:(f.y2026/maxFonte*100)+'%',background:'#9dc0ea',borderRadius:'5px 5px 0 0',transformOrigin:'bottom',animation:'seaBar .6s .1s ease both',minHeight:'3px'},
+      }));
+      const cats=d.categorias.filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+      const maxCat=Math.max(...cats.map(c=>c.total));
+      vals.catBars=cats.map(c=>({cat:c.cat,valTxt:this.brlShort(c.total),barStyle:{height:'100%',width:(c.total/maxCat*100)+'%',background:this.catColor(c.cat),borderRadius:'5px',transformOrigin:'left',animation:'seaBar .6s ease both'}}));
+    } else { vals.fonteGroups=[]; vals.catBars=[]; }
+
+    vals.opBlocks=[
+      {label:'Entradas aguardando conferência'},{label:'Recebimentos parciais'},
+      {label:'Itens com divergência'},{label:'Itens abaixo do mínimo'},{label:'Lotes próximos do vencimento'},
+    ];
+    const alertBase={display:'flex',alignItems:'center',gap:'12px',padding:'13px 14px',borderRadius:'10px',cursor:'pointer',border:'1px solid'};
+    vals.alerts=[
+      {title:'Controle × Levantamento 2025',desc:'Diferença de R$ 24.481,23 entre controles e levantamentos',tag:'Conferir',tone:'amber'},
+      {title:'FEAS 2026 — calculado × impresso',desc:'Diferença de R$ 2.338,00 no valor impresso',tag:'Conferir',tone:'amber'},
+      {title:'FUNCEP 2026 — calculado × impresso',desc:'Diferença de R$ 5.897,30 no valor impresso',tag:'Conferir',tone:'red'},
+      {title:'14 itens ausentes nos controles',desc:'Presentes nos levantamentos de 2025, preservados na Base Oficial',tag:'Auditar',tone:'amber'},
+      {title:'Categorias analíticas a validar',desc:'Classificações "Outros" e "Revisar" precisam de validação do setor',tag:'Revisar',tone:'gray'},
+    ].map(a=>{
+      const tones={amber:['#fbeecb','#b7791f','#fdf7ec'],red:['#f6d7d7','#c53030','#fdf1f1'],gray:['#e2e7ee','#64748b','#fafbfd']};
+      const [bd,cl,bg]=tones[a.tone];
+      return {...a,onClick:()=>this.setView('divergencias'),style:{...alertBase,borderColor:bd,background:bg},dotStyle:{flex:'none',width:'9px',height:'9px',borderRadius:'50%',background:cl},tagStyle:{flex:'none',fontSize:'11px',fontWeight:'700',color:cl,border:'1px solid '+bd,borderRadius:'20px',padding:'3px 10px',background:'#fff'}};
+    });
+    vals.notas=[
+      'Base Oficial: consolida os 6 documentos de Controle de Pedidos (2025 e 2026) das fontes SEASIC, FEAS e FUNCEP.',
+      'Base Completa: soma ao Controle os 3 Levantamentos de 2025 (SEASIC, FEAS, FUNCEP), usados apenas para conferência. Os KPIs e gráficos usam só o Controle, para não contar 2025 em duplicidade.',
+      'Cada linha foi conferida contra o total impresso de seu documento de origem — divergência zero na extração.',
+      'Categorias e naturezas são classificações analíticas e devem ser validadas pelo setor.',
+      'FEAS 2026 e FUNCEP 2026 apresentam diferença entre total impresso e soma recalculada (ver Divergências).',
+      'As abas Entradas, Saídas e Estoque estão preparadas para a fase operacional — nada é presumido.',
+    ];
+
+    // ===== PEDIDOS =====
+    vals.thL={position:'sticky',top:0,background:'#f4f6f9',textAlign:'left',padding:'11px 12px',fontSize:'10.5px',fontWeight:'700',color:'#5a6675',textTransform:'uppercase',letterSpacing:'.5px',borderBottom:'1px solid #e2e7ee',whiteSpace:'nowrap'};
+    vals.thC={...vals.thL,textAlign:'center'}; vals.thR={...vals.thL,textAlign:'right'};
+    const tdBase={padding:'10px 12px',borderBottom:'1px solid #eef1f5',color:'#3a4656',verticalAlign:'middle'};
+    vals.td=tdBase; vals.tdC={...tdBase,textAlign:'center'}; vals.tdR={...tdBase,textAlign:'right',fontWeight:600};
+    vals.tdMono={...tdBase,fontFamily:"'IBM Plex Mono',monospace",fontSize:'11.5px',color:'#5a6675',whiteSpace:'nowrap'};
+    vals.tdRmono={...tdBase,textAlign:'right',fontFamily:"'IBM Plex Mono',monospace",fontSize:'12px'};
+
+    const fp=this.filteredPedidos();
+    vals.pCount=this.int(fp.length);
+    vals.pTotal=d?this.int(d.meta.registrosOficiais):'—';
+    vals.iTotal=d?this.int(d.meta.itensCadastrados):'—';
+    vals.repDate=d?d.meta.atualizacao:'—';
+    vals.repValor=d?this.brl(d.meta.valorOficial):'—';
+    const _tf=this.state.pf.tipo, _of=d?d.meta.registrosOficiais:0, _cp=d?d.meta.registrosCompletos:0;
+    if(_tf==='Controle'){ vals.pScopeCount=this.int(_of); vals.pScopeLabel='registros oficiais (Controle)'; }
+    else if(_tf==='Levantamento'){ vals.pScopeCount=this.int(_cp-_of); vals.pScopeLabel='linhas de levantamento 2025 (conferência)'; }
+    else { vals.pScopeCount=this.int(_cp); vals.pScopeLabel='registros na base completa'; }
+    vals.pEmpty=!!d && fp.length===0;
+    vals.pFiltersOpen=this.state.pFiltersOpen;
+    vals.togglePFilters=()=>this.setState({pFiltersOpen:!this.state.pFiltersOpen});
+    vals.pf=this.state.pf;
+    const setPF=(k,v)=>this.setState({pf:{...this.state.pf,[k]:v}});
+    vals.onPAno=e=>setPF('ano',e.target.value); vals.onPFonte=e=>setPF('fonte',e.target.value);
+    vals.onPTipo=e=>setPF('tipo',e.target.value); vals.onPCat=e=>setPF('cat',e.target.value); vals.onPQ=e=>setPF('q',e.target.value);
+    vals.clearPFilters=()=>this.setState({pf:{ano:'',fonte:'',tipo:'Controle',cat:'',q:''}});
+    vals.exportPedidos=()=>this.toast('Exportando '+this.int(fp.length)+' registros para Excel…');
+    const af=this.state.pf; const nActive=['ano','fonte','cat','q'].filter(k=>af[k]).length+((af.tipo&&af.tipo!=='Controle')?1:0);
+    vals.pActiveTxt=nActive?nActive+(nActive>1?' filtros ativos':' filtro ativo'):'';
+    vals.catOpts=d?[...new Set(d.pedidos.map(p=>p.cat))].sort():[];
+    const fonteChipC={SEASIC:['#e8f0fa','#1e5aa8'],FEAS:['#e6f5ec','#1f7a4d'],FUNCEP:['#f3ecfb','#7a4fb0']};
+    const chip=(bg,cl)=>({display:'inline-block',fontSize:'11px',fontWeight:'700',padding:'3px 9px',borderRadius:'6px',background:bg,color:cl,whiteSpace:'nowrap'});
+    vals.pedidoRows=fp.slice(0,300).map((p,i)=>{
+      const cc=this.catColor(p.cat); const fc=fonteChipC[p.fonte]||['#eef1f5','#5a6675'];
+      return {...p, qtd:this.numf(p.qtd), vu:this.brl(p.vu), vt:this.brl(p.vt),
+        origem:(p.arquivo||'').replace(/CONTROLE DE PEDIDOS |LEVANTAMENTO.*?- |\.pdf/g,'').trim()+' p.'+p.pagina,
+        onClick:()=>this.setState({selPedido:p}),
+        rowStyle:{cursor:'pointer',background:'#fff',transition:'background .1s'},
+        catChip:{...chip(cc+'1f',cc),background:'rgba(0,0,0,0)',color:cc,fontWeight:600,fontSize:'11.5px',padding:0},
+        fonteChip:chip(fc[0],fc[1])};
+    });
+
+    // ---- pedido drawer ----
+    const sp=this.state.selPedido;
+    vals.selPedido=!!sp; vals.sp=sp||{};
+    vals.closePedido=()=>this.setState({selPedido:null});
+    vals.verNoDoc=()=>this.toast('Abrindo '+(sp?sp.arquivo:'')+' na página '+(sp?sp.pagina:'')+'…');
+    vals.abrirFichaItem=()=>{ if(sp){ const it=d&&d.itens.find(x=>x.item===sp.item); this.setState({selPedido:null,view:'itens',selItem:it||{item:sp.item,produto:sp.produto,cat:sp.cat,unidade:sp.unidade,desc:sp.desc},itemTab:'pedidos'}); } };
+    const fWrap={background:'#fff',border:'1px solid #e2e7ee',borderRadius:'9px',padding:'11px 13px'};
+    vals.spFields=sp?[
+      {label:'Código completo',value:sp.item,mono:true},
+      {label:'Unidade',value:sp.unidade},
+      {label:'Quantidade',value:this.numf(sp.qtd)},
+      {label:'Valor unitário',value:this.brl(sp.vu),mono:true},
+      {label:'Valor total',value:this.brl(sp.vt),mono:true,strong:true},
+      {label:'Subcategoria',value:sp.subcat},
+      {label:'Natureza',value:sp.nat},
+      {label:'Tipo de documento',value:sp.tipo},
+    ].map(f=>({...f,wrap:fWrap,valStyle:{marginTop:'3px',fontSize:f.strong?'16px':'14px',fontWeight:f.strong?800:600,color:f.strong?'#0b2545':'#1a2432',fontFamily:f.mono?"'IBM Plex Mono',monospace":'inherit'}})):[];
+
+    // ===== ITENS =====
+    const fi=this.filteredItens();
+    vals.iCount=this.int(fi.length);
+    vals.if_=this.state.if_;
+    const setIF=(k,v)=>this.setState({if_:{...this.state.if_,[k]:v}});
+    vals.onIQ=e=>setIF('q',e.target.value); vals.onICat=e=>setIF('cat',e.target.value); vals.onIFonte=e=>setIF('fonte',e.target.value);
+    vals.iCardsMode=this.state.itemMode==='cards'; vals.iTableMode=this.state.itemMode==='table';
+    vals.setCards=()=>this.setState({itemMode:'cards'}); vals.setTable=()=>this.setState({itemMode:'table'});
+    const segOn={height:'34px',padding:'0 15px',border:'none',cursor:'pointer',fontSize:'12.5px',fontWeight:'700',background:'#12315c',color:'#fff'};
+    const segOff={height:'34px',padding:'0 15px',border:'none',cursor:'pointer',fontSize:'12.5px',fontWeight:'600',background:'#fff',color:'#5a6675'};
+    vals.btnCards=vals.iCardsMode?segOn:segOff; vals.btnTable=vals.iTableMode?segOn:segOff;
+    const mkItem=(it)=>{ const cc=this.catColor(it.cat);
+      return {...it, catCl:cc, vt:this.brlShort(it.vt), qtd:this.numf(it.qtd),
+        onClick:()=>this.setState({selItem:it,itemTab:'ident'}),
+        dot:{flex:'none',width:'9px',height:'9px',borderRadius:'50%',background:'#c7d0dc'}}; };
+    vals.itemCards=fi.slice(0,120).map(mkItem);
+    vals.itemRows=fi.slice(0,300).map(mkItem);
+
+    // ---- item ficha ----
+    const si=this.state.selItem; vals.selItem=!!si; vals.si=si||{};
+    vals.closeItem=()=>this.setState({selItem:null});
+    vals.salvarConfig=()=>this.toast('Parâmetros do item registrados (protótipo).');
+    const itab=this.state.itemTab;
+    vals.itTabIdent=itab==='ident'; vals.itTabConfig=itab==='config';
+    vals.itTabMov=['pedidos','entradas','saidas','lotes','estoque'].includes(itab);
+    vals.itemTabs=[['ident','Identificação'],['pedidos','Pedidos'],['entradas','Entradas'],['saidas','Saídas'],['lotes','Lotes'],['estoque','Estoque'],['config','Configurações']].map(([k,label])=>{
+      const on=itab===k; return {label,onClick:()=>this.setState({itemTab:k}),style:{flex:'none',padding:'13px 12px',border:'none',borderBottom:on?'2px solid #1e5aa8':'2px solid transparent',background:'transparent',cursor:'pointer',fontSize:'12.5px',fontWeight:on?700:500,color:on?'#1e5aa8':'#5a6675',whiteSpace:'nowrap'}};
+    });
+    const ivs={marginTop:'3px',fontSize:'14px',fontWeight:600,color:'#1a2432'};
+    const ivsMono={...ivs,fontFamily:"'IBM Plex Mono',monospace"};
+    vals.identFields=si?[
+      {label:'Código',value:si.item,vs:ivsMono},{label:'Unidade',value:si.unidade,vs:ivs},
+      {label:'Categoria',value:si.cat,vs:ivs},{label:'Subcategoria',value:si.subcat||'—',vs:ivs},
+      {label:'Natureza',value:si.nat||'—',vs:ivs},{label:'Chave do item',value:si.chave||si.item,vs:{...ivsMono,fontSize:'11px'}},
+    ]:[];
+    vals.histCards=si?[
+      {label:'Anos',value:si.anos||'—',vs:ivs},{label:'Fontes',value:si.fontes||'—',vs:ivs},
+      {label:'Registros',value:this.int(si.regs||0),vs:ivs},{label:'Qtd. histórica',value:this.numf(si.qtd||0),vs:ivs},
+      {label:'Valor total',value:this.brl(si.vt||0),vs:{...ivsMono,fontSize:'12px'}},{label:'Valor médio/un.',value:this.brl(si.vmed||0),vs:{...ivsMono,fontSize:'12px'}},
+    ]:[];
+    const movLabels={pedidos:['Pedidos históricos deste item','Os pedidos consolidados aparecem aqui a partir da Base Oficial. Este item ainda será vinculado aos registros correspondentes.'],entradas:['Nenhuma entrada registrada','As entradas físicas deste item aparecerão aqui quando a operação do almoxarifado começar.'],saidas:['Nenhuma saída registrada','As distribuições deste item serão listadas aqui após o início dos registros.'],lotes:['Nenhum lote cadastrado','Lotes e validades serão exibidos quando houver recebimentos registrados.'],estoque:['Sem histórico de estoque','O histórico de saldo será construído a partir de entradas e saídas registradas.']};
+    vals.movTitle=(movLabels[itab]||['',''])[0]; vals.movDesc=(movLabels[itab]||['',''])[1];
+
+    // ===== ENTRADAS / SAÍDAS =====
+    vals.entradaStats=[{label:'Total no período'},{label:'Pendentes de conferência'},{label:'Recebimentos parciais'},{label:'Com divergência'}];
+    vals.openEntrada=()=>this.setState({modalEntrada:true,entradaItems:[{}]});
+    vals.openSaida=()=>this.setState({modalSaida:true});
+    vals.closeModals=()=>this.setState({modalEntrada:false,modalSaida:false,reportModal:null});
+    vals.stop=e=>e.stopPropagation();
+    vals.modalEntrada=this.state.modalEntrada; vals.modalSaida=this.state.modalSaida; vals.reportModal=this.state.reportModal;
+    vals.saidaViews=['Unidade','Programa','Categoria','Item','Período'].map((label,i)=>({label,style:{fontSize:'12.5px',fontWeight:'600',padding:'6px 13px',borderRadius:'20px',cursor:'pointer',background:i===0?'#12315c':'#fff',color:i===0?'#fff':'#5a6675',border:i===0?'none':'1px solid #d3dce7'}}));
+    vals.entradaHeadFields=[{label:'Data de entrada',ph:'dd/mm/aaaa'},{label:'Fonte',ph:'SEASIC / FEAS / FUNCEP'},{label:'Documento / NF',ph:'nº da nota'},{label:'Fornecedor',ph:'razão social'},{label:'Responsável',ph:'servidor'},{label:'Valor total da nota',ph:'R$ 0,00'}];
+    vals.saidaFields=[{label:'Data',ph:'dd/mm/aaaa'},{label:'Unidade destinatária',ph:'unidade / CRAS / CREAS'},{label:'Programa / serviço',ph:'programa'},{label:'Responsável pela retirada',ph:'nome'},{label:'Item / produto',ph:'buscar item'},{label:'Quantidade',ph:'0'}];
+    vals.entradaItemRows=(this.state.entradaItems||[{}]).map((_,i)=>({remove:()=>{const a=[...this.state.entradaItems];a.splice(i,1);this.setState({entradaItems:a.length?a:[{}]});}}));
+    vals.addEntradaItem=()=>this.setState({entradaItems:[...(this.state.entradaItems||[{}]),{}]});
+    vals.salvarEntrada=()=>{this.setState({modalEntrada:false});this.toast('Entrada registrada (protótipo) · a base operacional será populada nesta etapa.');};
+    vals.salvarSaida=()=>{this.setState({modalSaida:false});this.toast('Saída registrada (protótipo).');};
+
+    // ===== ESTOQUE =====
+    vals.estoqueKpis=[{label:'Itens com saldo',value:'0'},{label:'Itens sem estoque',value:'—'},{label:'Abaixo do mínimo',value:'—'},{label:'Validade próxima',value:'—'},{label:'Valor estimado',value:'—'},{label:'Sem movimentação',value:'—'}];
+    vals.estoqueActions=[['Ajustar estoque inicial'],['Registrar entrada',()=>this.setState({modalEntrada:true,entradaItems:[{}]})],['Registrar saída',()=>this.setState({modalSaida:true})],['Corrigir saldo'],['Definir estoque mínimo'],['Ver histórico']].map(([label,fn])=>({label,onClick:fn||(()=>this.toast('Ação disponível na fase operacional: '+label+'.'))}));
+    vals.estoqueRows=(d?d.itens.slice(0,80):[]).map(it=>({item:it.item,produto:it.produto,cat:it.cat,catCl:this.catColor(it.cat),unidade:it.unidade}));
+
+    // ===== DIVERGÊNCIAS =====
+    vals.div2025Rows=(d?d.div2025:[]).map(r=>({fonte:r.fonte,lc:this.int(r.linhasControle),ll:this.int(r.linhasLev),vc:this.brl(r.valControle),vl:this.brl(r.valLev),dif:this.brl(r.dif).replace('R$ ',''),onClick:()=>this.toast('Diferença '+r.fonte+' 2025: '+this.brl(r.dif)+' — itens do levantamento preservados na Base Oficial.')}));
+    vals.div2026Rows=(d?d.div2026:[]).map(r=>{const ok=r.status==='CONCILIADO';const bg=ok?['#e6f5ec','#1f7a4d']:['#fbeecb','#b7791f'];return {fonte:r.fonte,qc:this.numf(r.qtdCalc),qi:this.numf(r.qtdImp),dq:this.numf(r.difQtd),vc:this.brl(r.valCalc),vi:this.brl(r.valImp),dv:this.brl(r.difVal),status:ok?'Conciliado':'Conferir',tag:{display:'inline-block',fontSize:'11px',fontWeight:'700',padding:'3px 11px',borderRadius:'20px',background:bg[0],color:bg[1]}};});
+    const fonteChipC2={SEASIC:['#e8f0fa','#1e5aa8'],FEAS:['#e6f5ec','#1f7a4d'],FUNCEP:['#f3ecfb','#7a4fb0']};
+    vals.ausentesRows=(d?d.ausentes:[]).map(a=>{const fc=fonteChipC2[a.fonte]||['#eef1f5','#5a6675'];return {fonte:a.fonte,item:a.item,produto:a.produto,qtd:this.numf(a.qtd),vt:this.brl(a.vt),arquivo:(a.arquivo||'').replace('LEVANTAMENTO DE PEDIDOS ALMOXARIFADO','LEV.').replace('.pdf',''),paginas:a.paginas,fonteChip:{display:'inline-block',fontSize:'10.5px',fontWeight:'700',padding:'3px 8px',borderRadius:'6px',background:fc[0],color:fc[1]}};});
+
+    // ===== RELATÓRIOS =====
+    const reps=[['Consolidado por fonte','Totais oficiais por SEASIC, FEAS e FUNCEP.'],['Consolidado por exercício','Comparativo 2025 × 2026.'],['Pedidos por categoria','Valores agrupados por categoria analítica.'],['Itens por fonte','Itens cadastrados em cada fonte de recurso.'],['Itens de maior valor','Ranking de itens por valor consolidado.'],['Entradas por período','Recebimentos registrados (fase operacional).'],['Saídas por unidade','Distribuições por unidade destinatária.'],['Estoque atual','Saldo físico e alertas de reposição.'],['Itens abaixo do mínimo','Materiais que exigem reposição.'],['Produtos próximos do vencimento','Lotes a vencer.'],['Divergências documentais','Conferências entre controles e levantamentos.'],['Histórico completo de um item','Trajetória de pedidos, entradas e saídas.']];
+    vals.reportCards=reps.map(([title,desc])=>({title,desc,onView:()=>this.setState({reportModal:title}),onXls:()=>this.toast('Exportando "'+title+'" para Excel…')}));
+    vals.printReport=()=>this.toast('Enviando relatório para impressão…');
+    vals.pdfReport=()=>this.toast('Gerando PDF do relatório…');
+    vals.xlsReport=()=>this.toast('Exportando relatório para Excel…');
+
+    // ===== DICIONÁRIO / AJUDA =====
+    vals.dicRows=d?d.dic:[];
+    vals.helpCards=[
+      {title:'Rastreabilidade',desc:'Cada registro guarda o arquivo e a página de origem. Abra a ficha de um pedido e use "Ver no documento de origem".'},
+      {title:'Dados históricos × operacionais',desc:'Pedidos são históricos consolidados. Entradas, Saídas e Estoque só terão dados após o início da operação — nada é presumido.'},
+      {title:'Chave do item',desc:'A identidade considera código + unidade + apresentação + produto, para não misturar apresentações diferentes de um mesmo código.'},
+      {title:'Divergências',desc:'A aba de auditoria compara controles e levantamentos. Os levantamentos de 2025 foram adotados como fonte oficial.'},
+    ];
+
+    return vals;
+  }
+}
+</script>
+</body>
+</html>
